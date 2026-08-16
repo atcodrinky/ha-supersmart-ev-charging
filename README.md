@@ -1,5 +1,11 @@
 # SuperSmart EV Charging per Home Assistant
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.12%2B-blue.svg)](https://www.home-assistant.io/)
+[![Version](https://img.shields.io/badge/version-1.4.0-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
+
+🇮🇹 Italiano · [🇬🇧 English](README.en.md)
+
 Integrazione HACS che riunisce le automazioni `EV - ...` per Skoda Elroq/Enyaq
 e Silla Prism in un solo controller configurabile.
 
@@ -24,6 +30,17 @@ La versione 1.4.0 include:
 - HACS per l'installazione come repository personalizzato;
 - wallbox con stato, potenza e comandi equivalenti a Silla Prism;
 - veicolo con sensore SOC.
+
+## Compatibilità
+
+L'integrazione nasce dalla configurazione **Skoda Elroq/Enyaq + Silla Prism**, ma
+può essere utilizzata con altri veicoli e wallbox se espongono in Home Assistant
+gli stessi tipi di sensore e comandi MQTT.
+
+- Il segno della potenza di rete deve essere positivo in import e negativo in export.
+- Lo stato della wallbox deve usare `idle`, `waiting`, `pause` e `charging`.
+- I payload e i topic MQTT sono configurabili durante l'installazione.
+- Autorizzazione e revoca possono usare button Home Assistant oppure topic MQTT.
 
 ## Sensori ed entità da configurare
 
@@ -142,6 +159,30 @@ Le decisioni sono serializzate per evitare publish sovrapposti.
 - Number: target SOC utente/veicolo, potenza contrattuale, import permesso,
   limite potenza notturna.
 
+Gli entity ID vengono assegnati da Home Assistant in base al nome del dispositivo
+e alla lingua. I nomi visualizzati sopra sono quindi descrittivi: verificare gli
+ID effettivi in **Impostazioni → Dispositivi e servizi → Entità**.
+
+## Esempio di card Lovelace
+
+Sostituire gli entity ID dell'esempio con quelli assegnati dalla propria istanza.
+
+```yaml
+type: entities
+title: SuperSmart EV Charging
+entities:
+  - entity: sensor.supersmart_ev_charging_charging_mode
+  - entity: sensor.supersmart_ev_charging_pv_surplus
+  - entity: sensor.supersmart_ev_charging_charging_time_remaining
+  - entity: number.supersmart_ev_charging_user_soc_target
+  - entity: number.supersmart_ev_charging_vehicle_soc_target
+  - entity: switch.supersmart_ev_charging_master_stop
+  - entity: switch.supersmart_ev_charging_force_charge
+  - entity: switch.supersmart_ev_charging_night_off_peak_charging
+  - entity: number.supersmart_ev_charging_allowed_grid_import_offset
+  - entity: number.supersmart_ev_charging_contract_power_limit
+```
+
 ## Azioni
 
 ```yaml
@@ -163,6 +204,49 @@ data:
 In **Strumenti per sviluppatori → Stati** controllare unità e segno della rete.
 Le automazioni originarie usano conversioni Jinja `float(0)`; l'integrazione
 applica conversioni equivalenti, ma blocca i comandi se un ingresso critico manca.
+
+## Diagramma
+
+![Diagramma del flusso SuperSmart EV Charging](assets/ev_energy_manager_flow.svg)
+
+## Struttura del repository
+
+```text
+custom_components/supersmart_ev_charging/
+├── __init__.py          # Setup, azioni ed eventi Home Assistant
+├── calculations.py     # Calcoli elettrici testabili
+├── coordinator.py      # Priorità, bilanciamento e comandi MQTT
+├── config_flow.py      # Configurazione guidata e opzioni
+├── const.py            # Costanti e valori predefiniti
+├── number.py           # Target SOC e limiti regolabili
+├── sensor.py           # Sensori diagnostici e stime
+├── switch.py           # Master Stop, FORZA, FV e F3
+├── services.yaml       # Descrizione delle azioni
+├── manifest.json       # Metadati Home Assistant/HACS
+├── strings.json        # Stringhe UI di base
+└── translations/
+    ├── it.json
+    └── en.json
+```
+
+## Migrazione dalle automazioni YAML
+
+1. Annotare i valori dei vecchi helper.
+2. Disattivare le vecchie automazioni EV prima di attivare l'integrazione.
+3. Installare e configurare SuperSmart EV Charging.
+4. Riportare target SOC, potenza contrattuale, import permesso e limite notturno
+   nelle nuove entità number.
+5. Eseguire un collaudo controllato.
+6. Disabilitare e, solo dopo il collaudo, eliminare i vecchi helper.
+
+Gli helper disabilitati restano nel registro di Home Assistant, ma non entrano in
+conflitto con le nuove entità perché usano domini diversi (`input_boolean` contro
+`switch`, `input_number` contro `number`).
+
+## Crediti
+
+Basato sul set di automazioni Home Assistant per la gestione energetica EV e
+sulla logica originale del progetto `ha-skoda-elroq-smart-charging`.
 
 ## Licenza
 
