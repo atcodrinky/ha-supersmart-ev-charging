@@ -1,0 +1,117 @@
+"""SuperSmart EV Charging – generic Home Assistant integration."""
+from __future__ import annotations
+
+import logging
+from datetime import timedelta
+
+import voluptuous as vol
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
+from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
+from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+
+from .const import DOMAIN, DEFAULT_MIN_CHARGE_CURRENT_A
+from .coordinator import SuperSmartEvChargingCoordinator
+
+_LOGGER = logging.getLogger(__name__)
+
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.SWITCH,
+    Platform.NUMBER,
+]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up SuperSmart EV Charging from a config entry."""
+    hass.data.setdefault(DOMAIN, {})
+
+    coordinator = SuperSmartEvChargingCoordinator(hass, entry)
+    await coordinator.async_config_entry_first_refresh()
+    hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # ── Services
+    async def svc_authorize(call: ServiceCall) -> None:
+        await coordinator.authorize_charging()
+
+    async def svc_revoke(call: ServiceCall) -> None:
+        await coordinator.revoke_charging()
+
+    async def svc_set_limit(call: ServiceCall) -> None:
+        await coordinator.set_current_limit(call.data.get("current_a", DEFAULT_MIN_CHARGE_CURRENT_A))
+
+    hass.services.async_register(DOMAIN, "authorize_charging", svc_authorize)
+    hass.services.async_register(DOMAIN, "revoke_charging",    svc_revoke)
+    hass.services.async_register(
+        DOMAIN,
+        "set_charge_limit",
+        svc_set_limit,
+        schema=vol.Schema({vol.Required("current_a"): vol.All(vol.Coerce(float), vol.Range(min=6, max=25))}),
+    )
+
+    # ── Background charging loop (every 30 s)
+    entry.async_on_unload(
+        async_track_time_interval(
+            hass,
+            coordinator.async_update_charging_logic,
+            timedelta(seconds=30),
+        )
+    )
+
+    # Le automazioni originali reagiscono ai cambi di stato, non solo a un poll.
+    tracked_entities = {
+        coordinator._soc_entity,
+        coordinator._charge_limit_entity,
+        coordinator._connected_entity,
+        coordinator._wallbox_state_entity,
+        coordinator._wallbox_power_entity,
+        coordinator._wallbox_voltage_entity,
+        coordinator._grid_entity,
+        coordinator._pv_entity,
+        coordinator._total_power_entity,
+        coordinator._tariff_entity,
+        "sun.sun",
+    }
+
+    @callback
+    def _handle_state_change(event: Event) -> None:
+        old = event.data.get("old_state")
+        new = event.data.get("new_state")
+        if new is None:
+            return
+        coordinator.schedule_state_change(
+            event.data["entity_id"],
+            old.state if old is not None else "",
+            new.state,
+        )
+
+    entry.async_on_unload(
+        async_track_state_change_event(hass, sorted(e for e in tracked_entities if e), _handle_state_change)
+    )
+
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    # Valutazione iniziale: non attendere il primo intervallo di 30 secondi.
+    await coordinator.async_update_charging_logic()
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    coordinator = hass.data[DOMAIN].get(entry.entry_id)
+    if coordinator is not None:
+        await coordinator.async_shutdown()
+    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        hass.data[DOMAIN].pop(entry.entry_id)
+        for service in ("authorize_charging", "revoke_charging", "set_charge_limit"):
+            if hass.services.has_service(DOMAIN, service):
+                hass.services.async_remove(DOMAIN, service)
+    return unload_ok
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload config entry."""
+    await async_unload_entry(hass, entry)
+    await async_setup_entry(hass, entry)

@@ -1,0 +1,6 @@
+{
+  "name": "SuperSmart EV Charging",
+  "content_in_root": false,
+  "homeassistant": "2025.12.0",
+  "render_readme": true
+}

@@ -1,0 +1,23 @@
+authorize_charging:
+  name: Autorizza ricarica
+  description: Autorizza manualmente la ricarica tramite il button configurato o MQTT.
+
+revoke_charging:
+  name: Revoca ricarica
+  description: Revoca manualmente l'autorizzazione di ricarica.
+
+set_charge_limit:
+  name: Imposta corrente di ricarica
+  description: Imposta manualmente il limite di corrente della wallbox.
+  fields:
+    current_a:
+      name: Corrente
+      description: Limite di corrente in ampere.
+      required: true
+      selector:
+        number:
+          min: 6
+          max: 25
+          step: 0.5
+          unit_of_measurement: A
+          mode: box

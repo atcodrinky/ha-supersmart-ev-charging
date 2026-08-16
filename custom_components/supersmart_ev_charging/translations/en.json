@@ -1,0 +1,98 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SuperSmart EV Charging – General settings",
+        "description": "Configure contract power, battery capacity and SOC targets. Targets can be changed later via number entities.",
+        "data": {
+          "contract_power_w": "Contract power limit (W)",
+          "battery_capacity_kwh": "Vehicle battery capacity (kWh)",
+          "tariff_enabled": "Enable off-peak tariff charging (F3 / night)",
+          "mqtt_enabled": "Enable wallbox control via MQTT",
+          "energy_publish_enabled": "Publish energy telemetry to Prism via MQTT",
+          "initial_user_soc_target": "User SOC target – used for NIGHT F3 charging (%)",
+          "initial_vehicle_soc_target": "Vehicle SOC target – used for PV SURPLUS & FORCE (%)"
+        }
+      },
+      "entities": {
+        "title": "SuperSmart EV Charging – Entity selection",
+        "description": "Link your Home Assistant sensors. Fields marked with * are required.",
+        "data": {
+          "vehicle_soc_entity": "* Vehicle SOC sensor (e.g. sensor.elroq_percentuale_batteria)",
+          "vehicle_connected_entity": "Optional vehicle connection entity; derived from wallbox state when omitted",
+          "vehicle_charge_limit_entity": "Vehicle charge limit – optional (e.g. number.elroq_limite_di_carica)",
+          "grid_power_entity": "* Grid power sensor, W – positive = import (e.g. sensor.rete_power)",
+          "pv_power_entity": "* PV production sensor, W (e.g. sensor.fotovoltaico_power)",
+          "total_power_entity": "Total instant power – optional (e.g. sensor.potenza_istantanea). If omitted: computed as grid + PV.",
+          "wallbox_state_entity": "* Wallbox state sensor – expected values: idle, waiting, pause, charging (e.g. sensor.silla_prism_stato_wallbox)",
+          "wallbox_power_entity": "* Wallbox power, W (e.g. sensor.wallbox_potenza)",
+          "wallbox_voltage_entity": "Wallbox voltage, V – optional, default 230V (e.g. sensor.wallbox_tensione)",
+          "wallbox_mode_entity": "Wallbox port mode – optional, used for notifications",
+          "button_authorize_entity": "Authorize button entity – Silla Prism (e.g. button.silla_prism_autorizza_ricarica)",
+          "button_revoke_entity": "Revoke authorization button – Silla Prism (e.g. button.silla_prism_revoca_autorizzazione_ricarica)",
+          "notify_service": "Optional notification service (e.g. notify.mobile_app_family)",
+          "tariff_entity": "* Tariff sensor (required when off-peak charging is enabled)",
+          "tariff_offpeak_value": "Off-peak tariff value (e.g. F3, cheap, low)"
+        }
+      },
+      "mqtt": {
+        "title": "SuperSmart EV Charging – Wallbox MQTT configuration",
+        "description": "MQTT topics for wallbox control. For Silla Prism: set_mode = prism/1/command/set_mode, current = prism/1/command/set_current_limit. Authorize/revoke topics are only used if HA button entities are NOT configured.",
+        "data": {
+          "mqtt_topic_authorize": "Authorize charging topic (only if HA button NOT configured)",
+          "mqtt_topic_revoke": "Revoke authorization topic (only if HA button NOT configured)",
+          "mqtt_topic_set_current": "Set current limit topic (A) – e.g. prism/1/command/set_current_limit",
+          "mqtt_topic_set_mode": "Set mode topic – e.g. prism/1/command/set_mode",
+          "mqtt_payload_mode_solar": "Solar mode payload (Silla Prism: 1)",
+          "mqtt_payload_mode_normal": "Normal/grid mode payload (Silla Prism: 2)",
+          "mqtt_payload_mode_pause": "Pause/stop mode payload (Silla Prism: 3)",
+          "mqtt_topic_power_grid": "Grid power telemetry topic",
+          "mqtt_topic_power_solar": "Solar power telemetry topic",
+          "mqtt_topic_power_house": "Instantaneous power telemetry topic"
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "Entity not found in Home Assistant"
+    },
+    "abort": {
+      "already_configured": "SuperSmart EV Charging already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SuperSmart EV Charging – Options",
+        "data": {
+          "battery_capacity_kwh": "Battery capacity (kWh)",
+          "tariff_enabled": "Enable off-peak charging",
+          "mqtt_enabled": "Enable MQTT",
+          "energy_publish_enabled": "Publish Prism energy telemetry"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "charging_mode": { "name": "Charging Mode" },
+      "pv_surplus": { "name": "PV Surplus" },
+      "target_soc": { "name": "Active SOC Target" },
+      "time_remaining": { "name": "Charging Time Remaining" },
+      "charge_end_time": { "name": "Estimated Charge End Time" },
+      "wallbox_current_target": { "name": "Wallbox Current Target" }
+    },
+    "switch": {
+      "master_stop": { "name": "Master Stop" },
+      "force_charge": { "name": "Force Charge" },
+      "solar_controller": { "name": "Solar Controller Active" },
+      "night_charging": { "name": "Night Charging (F3)" }
+    },
+    "number": {
+      "user_soc_target": { "name": "User SOC Target (Night F3)" },
+      "vehicle_soc_target": { "name": "Vehicle SOC Target (PV Surplus / Force)" },
+      "contract_power": { "name": "Contract Power Limit" },
+      "allowed_import": { "name": "Allowed Grid Import Offset (PV)" },
+      "night_power_limit": { "name": "Night Power Limit (F3)" }
+    }
+  }
+}
