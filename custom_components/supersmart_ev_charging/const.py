@@ -65,6 +65,8 @@ CONF_BATTERY_CAPACITY_KWH = "battery_capacity_kwh"
 DEFAULT_CONTRACT_POWER_W     = 5700       # input_number.limite_potenza_contratto_w
 DEFAULT_BATTERY_CAPACITY_KWH = 60.0
 DEFAULT_ALLOWED_IMPORT_W     = 200        # input_number.limite_import_permesso
+MIN_ALLOWED_IMPORT_W         = -500       # margine massimo di esportazione FV
+MAX_ALLOWED_IMPORT_W         = 500        # import massimo tollerato in FV
 DEFAULT_SAFETY_MARGIN_W      = 0          # la YAML non usa un margine fisso separato
 
 DEFAULT_NIGHT_POWER_LIMIT_W  = 3000       # input_number.ev_limite_notturno_w
