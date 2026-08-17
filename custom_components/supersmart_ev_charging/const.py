@@ -73,7 +73,8 @@ DEFAULT_VEHICLE_SOC_TARGET   = 80         # input_number.limite_batteria_auto
 
 # ── Charging current limits ────────────────────────────────────────────────────
 DEFAULT_MIN_CHARGE_CURRENT_A = 6          # minimo assoluto IEC 61851
-DEFAULT_MAX_CHARGE_CURRENT_A = 25         # la YAML usa [amp, 25] | min (non 16!)
+DEFAULT_MAX_CHARGE_CURRENT_A = 25         # controller FV: YAML usa [amp, 25] | min
+DEFAULT_MAX_LOAD_CURRENT_A   = 32         # FORZA/notte: YAML usa [amp, 32] | min
 
 # ── PV surplus soglie – REPLICANO ESATTAMENTE LE YAML ─────────────────────────
 # Surplus FV: start se amp_new_raw >= 7 per 30 s (trigger template con for:30s)
