@@ -58,6 +58,8 @@ from .const import (
     DEFAULT_CONTRACT_POWER_W,
     DEFAULT_BATTERY_CAPACITY_KWH,
     DEFAULT_ALLOWED_IMPORT_W,
+    MIN_ALLOWED_IMPORT_W,
+    MAX_ALLOWED_IMPORT_W,
     DEFAULT_MIN_CHARGE_CURRENT_A,
     DEFAULT_MAX_CHARGE_CURRENT_A,
     DEFAULT_MAX_LOAD_CURRENT_A,
@@ -242,7 +244,13 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         )
         self.user_soc_target = float(saved.get("user_soc_target", self.user_soc_target))
         self.vehicle_soc_target = float(saved.get("vehicle_soc_target", self.vehicle_soc_target))
-        self.allowed_import_w = float(saved.get("allowed_import_w", self.allowed_import_w))
+        saved_allowed_import = float(
+            saved.get("allowed_import_w", self.allowed_import_w)
+        )
+        self.allowed_import_w = max(
+            MIN_ALLOWED_IMPORT_W,
+            min(saved_allowed_import, MAX_ALLOWED_IMPORT_W),
+        )
         self.night_power_limit_w = float(saved.get("night_power_limit_w", self.night_power_limit_w))
         self._contract_power_w = float(saved.get("contract_power_w", self._contract_power_w))
         self.last_limit_sent_a = float(saved.get("last_limit_sent_a", self.last_limit_sent_a))

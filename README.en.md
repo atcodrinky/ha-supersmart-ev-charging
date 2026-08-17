@@ -2,15 +2,16 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-0.9.0--beta.8-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
+[![Version](https://img.shields.io/badge/version-0.9.0--beta.9-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
 
 [🇮🇹 Italiano](README.md) · 🇬🇧 English
 
 A HACS integration that replaces the original `EV - ...` automations for a
 Skoda Elroq/Enyaq and Silla Prism with one configurable charging controller.
 
-Version 0.9.0-beta.8 provides:
+Version 0.9.0-beta.9 provides:
 
+- a PV offset configurable from `-500` to `+500 W`, allowing an export margin that prevents grid import during fluctuations;
 - target current aligned with the last limit sent in PV, FORCE and F3 modes;
 - new actual wallbox current estimated from power and voltage;
 - timezone-aware estimated charge-end timestamp compatible with Home Assistant;
@@ -134,6 +135,10 @@ delta_A       = (-grid_power + allowed_import) / voltage
 current_now   = wallbox_power / voltage
 target_A      = current_now + delta_A
 ```
+
+`allowed_import` may be negative: for example, `-200 W` sets approximately
+200 W of grid export as the neutral point. If export decreases, the controller
+reduces wallbox current before grid import begins.
 
 Using only `delta_A` would incorrectly treat a stable near-zero-grid-exchange
 charge as if there were no PV power available.

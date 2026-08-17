@@ -16,6 +16,8 @@ from .const import (
     NUMBER_ALLOWED_IMPORT,
     NUMBER_NIGHT_POWER_LIMIT,
     NUMBER_BATTERY_CAPACITY,
+    MIN_ALLOWED_IMPORT_W,
+    MAX_ALLOWED_IMPORT_W,
 )
 from .coordinator import SuperSmartEvChargingCoordinator
 
@@ -134,10 +136,12 @@ class AllowedImportNumber(_Base):
     Replica input_number.limite_import_permesso.
     Offset aggiunto al surplus FV calcolato: amp_fv = (-rete + offset_w) / v_grid.
     Default 200W = permetti max 200W di import dalla rete mentre carichi con FV.
+    Un valore negativo mantiene invece un margine di esportazione: -200W cerca
+    di cedere circa 200W alla rete per assorbire le oscillazioni senza importare.
     """
     _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_native_min_value = 0
-    _attr_native_max_value = 3000
+    _attr_native_min_value = MIN_ALLOWED_IMPORT_W
+    _attr_native_max_value = MAX_ALLOWED_IMPORT_W
     _attr_native_step = 50
     _attr_icon = "mdi:transmission-tower-import"
 
@@ -149,7 +153,9 @@ class AllowedImportNumber(_Base):
         return self.coordinator.allowed_import_w
 
     async def async_set_native_value(self, value: float) -> None:
-        self.coordinator.allowed_import_w = value
+        self.coordinator.allowed_import_w = max(
+            MIN_ALLOWED_IMPORT_W, min(value, MAX_ALLOWED_IMPORT_W)
+        )
         self.coordinator.async_update_listeners()
         await self.coordinator.async_update_charging_logic()
 

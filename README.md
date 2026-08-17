@@ -2,15 +2,16 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-0.9.0--beta.8-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
+[![Version](https://img.shields.io/badge/version-0.9.0--beta.9-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
 
 🇮🇹 Italiano · [🇬🇧 English](README.en.md)
 
 Integrazione HACS che riunisce le automazioni `EV - ...` per Skoda Elroq/Enyaq
 e Silla Prism in un solo controller configurabile.
 
-La versione 0.9.0-beta.8 include:
+La versione 0.9.0-beta.9 include:
 
+- offset FV configurabile da `-500` a `+500 W` per mantenere un margine di esportazione ed evitare import durante le oscillazioni;
 - corrente target allineata all'ultimo limite inviato in FV, FORZA e F3;
 - nuova corrente effettiva wallbox stimata da potenza e tensione;
 - timestamp di fine ricarica timezone-aware compatibile con Home Assistant;
@@ -138,6 +139,10 @@ delta_A      = (-potenza_rete + import_permesso) / tensione
 corrente_ora = potenza_wallbox / tensione
 target_A     = corrente_ora + delta_A
 ```
+
+`import_permesso` può essere negativo: ad esempio `-200 W` imposta come punto
+neutro circa 200 W ceduti alla rete. Se l'esportazione diminuisce, il controller
+riduce la corrente della wallbox prima che inizi l'importazione.
 
 Usando soltanto `delta_A`, una carica stabile vicino allo zero-scambio verrebbe
 erroneamente interpretata come priva di surplus.

@@ -24,6 +24,17 @@ class CalculationTests(unittest.TestCase):
         self.assertAlmostEqual(delta, 0.869565, places=5)
         self.assertAlmostEqual(target, 6.869565, places=5)
 
+    def test_negative_import_offset_keeps_an_export_margin(self) -> None:
+        # With a -200 W offset, exporting 200 W is the neutral setpoint.
+        delta, target = calculations.pv_current_values(1380, -200, -200, 230)
+        self.assertEqual(delta, 0)
+        self.assertEqual(target, 6)
+
+        # If export falls to zero, the controller reduces current by ~0.87 A.
+        delta, target = calculations.pv_current_values(1380, 0, -200, 230)
+        self.assertAlmostEqual(delta, -0.869565, places=5)
+        self.assertAlmostEqual(target, 5.130435, places=5)
+
     def test_wallbox_actual_current_uses_power_and_safe_voltage(self) -> None:
         self.assertEqual(calculations.wallbox_current_from_power(2300, 230), 10)
         self.assertEqual(calculations.wallbox_current_from_power(-1380, 0), 6)
