@@ -2,15 +2,17 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-0.9.0--beta.7-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
+[![Version](https://img.shields.io/badge/version-0.9.0--beta.8-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
 
 🇮🇹 Italiano · [🇬🇧 English](README.en.md)
 
 Integrazione HACS che riunisce le automazioni `EV - ...` per Skoda Elroq/Enyaq
 e Silla Prism in un solo controller configurabile.
 
-La versione 0.9.0-beta.7 include:
+La versione 0.9.0-beta.8 include:
 
+- corrente target allineata all'ultimo limite inviato in FV, FORZA e F3;
+- nuova corrente effettiva wallbox stimata da potenza e tensione;
 - timestamp di fine ricarica timezone-aware compatibile con Home Assistant;
 - sync target SOC asimmetrico: 3 s HA → auto, immediato auto/MyŠkoda → HA;
 - comportamento restart: modifiche HA successive annullano il comando precedente;
@@ -164,7 +166,7 @@ Le decisioni sono serializzate per evitare publish sovrapposti.
 ## Entità create
 
 - Sensori: modalità, surplus FV, target SOC, tempo residuo, fine stimata,
-  corrente target.
+  corrente target e corrente effettiva wallbox.
 - Switch: Master Stop, Forza Ricarica, Controller Solare, Notte F3.
 - Number: target SOC utente/veicolo, capacità utile batteria, potenza
   contrattuale, import permesso e limite potenza notturna.
@@ -188,6 +190,7 @@ entities:
   - entity: sensor.supersmart_ev_charging_charging_mode
   - entity: sensor.supersmart_ev_charging_pv_surplus
   - entity: sensor.supersmart_ev_charging_charging_time_remaining
+  - entity: sensor.supersmart_ev_charging_actual_wallbox_current
   - entity: number.supersmart_ev_charging_user_soc_target
   - entity: number.supersmart_ev_charging_vehicle_soc_target
   - entity: number.supersmart_ev_charging_usable_battery_capacity

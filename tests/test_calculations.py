@@ -24,6 +24,10 @@ class CalculationTests(unittest.TestCase):
         self.assertAlmostEqual(delta, 0.869565, places=5)
         self.assertAlmostEqual(target, 6.869565, places=5)
 
+    def test_wallbox_actual_current_uses_power_and_safe_voltage(self) -> None:
+        self.assertEqual(calculations.wallbox_current_from_power(2300, 230), 10)
+        self.assertEqual(calculations.wallbox_current_from_power(-1380, 0), 6)
+
     def test_pv_stop_threshold_uses_final_target(self) -> None:
         _, above_stop = calculations.pv_current_values(1380, 300, 200, 230)
         _, below_stop = calculations.pv_current_values(1380, 350, 200, 230)

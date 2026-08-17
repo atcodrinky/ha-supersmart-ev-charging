@@ -21,6 +21,14 @@ def pv_current_values(
     return delta_a, target_a
 
 
+def wallbox_current_from_power(
+    wallbox_power_w: float,
+    voltage: float,
+) -> float:
+    """Estimate the actual single-phase wallbox current from power and voltage."""
+    return abs(wallbox_power_w) / clamp_voltage(voltage)
+
+
 def balanced_current(
     limit_w: float,
     total_power_w: float,

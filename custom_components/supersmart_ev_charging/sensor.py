@@ -24,6 +24,7 @@ from .const import (
     SENSOR_TIME_REMAINING,
     SENSOR_CHARGE_END_TIME,
     SENSOR_WALLBOX_CURRENT_TARGET,
+    SENSOR_WALLBOX_CURRENT_ACTUAL,
 )
 from .coordinator import SuperSmartEvChargingCoordinator
 
@@ -44,6 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         TimeRemainingSensor(coordinator, entry),
         ChargeEndTimeSensor(coordinator, entry),
         WallboxCurrentTargetSensor(coordinator, entry),
+        WallboxCurrentActualSensor(coordinator, entry),
     ])
 
 
@@ -160,4 +162,23 @@ class WallboxCurrentTargetSensor(_Base):
 
     @property
     def native_value(self) -> float:
-        return round((self.coordinator.data or {}).get("wallbox_current_target_a", 0.0), 1)
+        return round(self.coordinator.wallbox_current_target_a, 1)
+
+
+class WallboxCurrentActualSensor(_Base):
+    """Estimated current actually delivered by the single-phase wallbox."""
+
+    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
+    _attr_device_class = SensorDeviceClass.CURRENT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:current-ac"
+
+    def __init__(self, c, e):
+        super().__init__(c, e, SENSOR_WALLBOX_CURRENT_ACTUAL)
+
+    @property
+    def native_value(self) -> float:
+        return round(
+            (self.coordinator.data or {}).get("wallbox_current_actual_a", 0.0),
+            1,
+        )
