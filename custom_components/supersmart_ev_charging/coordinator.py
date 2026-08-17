@@ -12,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .calculations import (
     active_soc_target,
@@ -367,7 +368,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             )
             data["remaining_minutes"] = remaining_min
             data["charge_end_time"]   = (
-                datetime.now() + timedelta(minutes=remaining_min)
+                dt_util.now() + timedelta(minutes=remaining_min)
                 if remaining_min is not None else None
             )
 
@@ -520,7 +521,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                     self._force_below_since = None
                     await self._send_limit_if_changed(amp_contratto)
                 elif wb_state == WB_STATE_CHARGING and amp_contratto < DEFAULT_PV_STOP_CURRENT_A:
-                    now = datetime.now()
+                    now = dt_util.now()
                     self._force_below_since = self._force_below_since or now
                     self._pv_below_stop_cycles = int((now - self._force_below_since).total_seconds() // 30)
                     if (now - self._force_below_since).total_seconds() >= 60:
@@ -552,7 +553,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         if not skip_in_f3:
             # ── 4a. Stop FV: amp_fv < 5.5 per 60 s mentre carica ─────────────
             if self.solar_controller_active and wb_state == WB_STATE_CHARGING and amp_fv_target < DEFAULT_PV_STOP_CURRENT_A:
-                now = datetime.now()
+                now = dt_util.now()
                 self._pv_below_since = self._pv_below_since or now
                 self._pv_below_stop_cycles = int((now - self._pv_below_since).total_seconds() // 30)
                 self._pv_above_start_cycles = 0
@@ -576,7 +577,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
 
             # ── 4b. Avvio FV: amp_fv ≥ 7 per 30 s + waiting/pause ────────────
             if amp_fv_target >= DEFAULT_PV_START_CURRENT_A and wb_state in WB_STATES_READY:
-                now = datetime.now()
+                now = dt_util.now()
                 self._pv_above_since = self._pv_above_since or now
                 self._pv_above_start_cycles = int((now - self._pv_above_since).total_seconds() // 30)
                 self._pv_below_stop_cycles   = 0
@@ -678,7 +679,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 # Il trigger low_margin_60s delle YAML usa il limite
                 # contrattuale anche nel ramo notturno. La modulazione sopra,
                 # invece, resta correttamente basata sul limite notturno.
-                now = datetime.now()
+                now = dt_util.now()
                 self._night_below_since = self._night_below_since or now
                 self._pv_below_stop_cycles = int((now - self._night_below_since).total_seconds() // 30)
                 if (now - self._night_below_since).total_seconds() >= 60:
@@ -736,7 +737,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 and self.solar_controller_active
                 and wb_state != WB_STATE_CHARGING
                 and amp_fv < DEFAULT_FV_HYGIENE_CURRENT_A):
-            now = datetime.now()
+            now = dt_util.now()
             self._hygiene_since = self._hygiene_since or now
             self._fv_hygiene_cycles = int((now - self._hygiene_since).total_seconds() // 30)
             _LOGGER.debug(
@@ -885,7 +886,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         )
         self.data["remaining_minutes"] = remaining_min
         self.data["charge_end_time"] = (
-            datetime.now() + timedelta(minutes=remaining_min)
+            dt_util.now() + timedelta(minutes=remaining_min)
             if remaining_min is not None
             else None
         )
@@ -1138,7 +1139,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         Se configurata un'entità button HA (Silla Prism), usa button.press.
         Altrimenti pubblica su topic MQTT generico.
         """
-        self.last_authorization_ts = datetime.now()
+        self.last_authorization_ts = dt_util.now()
         if self._button_authorize_entity:
             await self._press_button(self._button_authorize_entity)
             _LOGGER.debug("[SuperSmart] Authorize → button.press %s", self._button_authorize_entity)
@@ -1152,7 +1153,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         Se configurata un'entità button HA (Silla Prism), usa button.press.
         Altrimenti pubblica su topic MQTT generico.
         """
-        self.last_revoke_ts = datetime.now()
+        self.last_revoke_ts = dt_util.now()
         if self._button_revoke_entity:
             await self._press_button(self._button_revoke_entity)
             _LOGGER.debug("[SuperSmart] Revoke → button.press %s", self._button_revoke_entity)
