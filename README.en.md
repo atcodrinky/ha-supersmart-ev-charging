@@ -9,7 +9,7 @@
 A HACS integration that replaces the original `EV - ...` automations for a
 Skoda Elroq/Enyaq and Silla Prism with one configurable charging controller.
 
-Version 1.4.0 provides:
+Version v0.9.0-beta.1 provides:
 
 - priority order `Master Stop → absolute SOC → FORCE → PV surplus → night F3 → idle`;
 - incremental PV control with a 7 A/30 s start threshold and 5.5 A/60 s stop threshold;
