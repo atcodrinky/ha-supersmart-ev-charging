@@ -145,7 +145,9 @@ class SolarControllerSwitch(_Base):
     async def async_turn_on(self, **kwargs: Any) -> None:
         self.coordinator.solar_controller_active = True
         self.coordinator.async_update_listeners()
-        await self.coordinator.async_update_charging_logic()
+        await self.coordinator.async_update_charging_logic(
+            trigger_entity="solar_controller"
+        )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self.coordinator.solar_controller_active = False
