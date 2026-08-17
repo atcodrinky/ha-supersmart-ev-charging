@@ -32,3 +32,20 @@ def balanced_current(
     house_w = max(0.0, total_power_w - abs(wallbox_power_w))
     margin_w = max(limit_w - house_w, 0.0)
     return round(min(margin_w / clamp_voltage(voltage), max_current_a), 1)
+
+
+def active_soc_target(
+    charging_mode: str,
+    force_charge: bool,
+    solar_controller_active: bool,
+    user_target: float,
+    vehicle_target: float,
+) -> float:
+    """Return the target used by the active charging strategy."""
+    if (
+        force_charge
+        or solar_controller_active
+        or charging_mode in ("force", "pv_surplus")
+    ):
+        return vehicle_target
+    return user_target
