@@ -16,6 +16,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    CHARGING_MODES,
     DOMAIN,
     SENSOR_CHARGING_MODE,
     SENSOR_PV_SURPLUS,
@@ -52,6 +53,7 @@ class _Base(CoordinatorEntity[SuperSmartEvChargingCoordinator], SensorEntity):
     def __init__(self, coordinator: SuperSmartEvChargingCoordinator, entry: ConfigEntry, suffix: str) -> None:
         super().__init__(coordinator)
         self._attr_unique_id  = f"{entry.entry_id}_{suffix}"
+        self._attr_translation_key = suffix
         self._attr_device_info = _DEVICE_INFO(entry.entry_id)
 
     @property
@@ -60,7 +62,8 @@ class _Base(CoordinatorEntity[SuperSmartEvChargingCoordinator], SensorEntity):
 
 
 class ChargingModeSensor(_Base):
-    _attr_name = "Charging Mode"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = CHARGING_MODES
     _attr_icon = "mdi:ev-station"
 
     def __init__(self, c, e):
@@ -85,7 +88,6 @@ class ChargingModeSensor(_Base):
 
 
 class PvSurplusSensor(_Base):
-    _attr_name = "PV Surplus"
     _attr_native_unit_of_measurement = UnitOfPower.WATT
     _attr_device_class  = SensorDeviceClass.POWER
     _attr_state_class   = SensorStateClass.MEASUREMENT
@@ -100,7 +102,6 @@ class PvSurplusSensor(_Base):
 
 
 class TargetSocSensor(_Base):
-    _attr_name = "Target SOC"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_device_class = SensorDeviceClass.BATTERY
     _attr_state_class  = SensorStateClass.MEASUREMENT
@@ -115,7 +116,6 @@ class TargetSocSensor(_Base):
 
 
 class TimeRemainingSensor(_Base):
-    _attr_name = "Charging Time Remaining"
     _attr_icon = "mdi:timer-outline"
 
     def __init__(self, c, e):
@@ -138,7 +138,6 @@ class TimeRemainingSensor(_Base):
 
 
 class ChargeEndTimeSensor(_Base):
-    _attr_name = "Charge End Time"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_icon = "mdi:clock-end"
 
@@ -151,7 +150,6 @@ class ChargeEndTimeSensor(_Base):
 
 
 class WallboxCurrentTargetSensor(_Base):
-    _attr_name = "Wallbox Current Target"
     _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
     _attr_device_class = SensorDeviceClass.CURRENT
     _attr_state_class  = SensorStateClass.MEASUREMENT

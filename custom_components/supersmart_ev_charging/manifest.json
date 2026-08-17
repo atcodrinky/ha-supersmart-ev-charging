@@ -1,7 +1,7 @@
 {
   "domain": "supersmart_ev_charging",
   "name": "SuperSmart EV Charging",
-  "version": "0.9.0-beta.4",
+  "version": "0.9.0-beta.5",
   "documentation": "https://github.com/atcodrinky/ha-supersmart-ev-charging",
   "issue_tracker": "https://github.com/atcodrinky/ha-supersmart-ev-charging/issues",
   "codeowners": ["@atcodrinky"],
