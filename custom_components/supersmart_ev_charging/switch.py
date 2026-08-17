@@ -52,6 +52,7 @@ class _Base(CoordinatorEntity[SuperSmartEvChargingCoordinator], SwitchEntity):
     ) -> None:
         super().__init__(coordinator)
         self._attr_unique_id   = f"{entry.entry_id}_{suffix}"
+        self._attr_translation_key = suffix
         self._attr_device_info = _DEVICE_INFO(entry.entry_id)
 
 
@@ -61,7 +62,6 @@ class MasterStopSwitch(_Base):
     ON  → ferma tutto, revoca auth, FV OFF, FORZA OFF.
     OFF → si resetta da solo quando il cavo viene scollegato (wallbox → idle).
     """
-    _attr_name = "Master Stop"
     _attr_icon = "mdi:stop-circle"
 
     def __init__(self, c, e):
@@ -99,7 +99,6 @@ class ForceChargeSwitch(_Base):
           se F3 notte + SOC basso → continua notturna,
           altrimenti → stop carica.
     """
-    _attr_name = "Force Charge"
     _attr_icon = "mdi:flash"
 
     def __init__(self, c, e):
@@ -132,7 +131,6 @@ class SolarControllerSwitch(_Base):
     Normalmente gestito internamente dal coordinator.
     Può essere letto per status; raramente scritto manualmente.
     """
-    _attr_name = "Solar Controller Active"
     _attr_icon = "mdi:solar-power-variant"
 
     def __init__(self, c, e):
@@ -159,7 +157,6 @@ class SolarControllerSwitch(_Base):
 
 class NightChargingSwitch(_Base):
     """Abilita/disabilita la logica notturna F3 (Gestione Fascia + Gestione Carichi)."""
-    _attr_name = "Night / Off-Peak Charging"
     _attr_icon = "mdi:weather-night"
 
     def __init__(self, c, e):

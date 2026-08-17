@@ -74,7 +74,16 @@
   },
   "entity": {
     "sensor": {
-      "charging_mode": { "name": "Charging Mode" },
+      "charging_mode": {
+        "name": "Charging Mode",
+        "state": {
+          "idle": "Idle",
+          "pv_surplus": "PV Surplus",
+          "night": "Night F3",
+          "force": "Force",
+          "master_stop": "Master Stop"
+        }
+      },
       "pv_surplus": { "name": "PV Surplus" },
       "target_soc": { "name": "Active SOC Target" },
       "time_remaining": { "name": "Charging Time Remaining" },

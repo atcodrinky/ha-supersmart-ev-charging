@@ -53,6 +53,7 @@ class _Base(CoordinatorEntity[SuperSmartEvChargingCoordinator], NumberEntity):
     ) -> None:
         super().__init__(coordinator)
         self._attr_unique_id   = f"{entry.entry_id}_{suffix}"
+        self._attr_translation_key = suffix
         self._attr_device_info = _DEVICE_INFO(entry.entry_id)
 
 
@@ -61,7 +62,6 @@ class UserSocTargetNumber(_Base):
     Replica input_number.limite_batteria_manuale.
     Limite SOC per logica notturna F3. Non può superare limite_auto (Protezione limiti).
     """
-    _attr_name = "User SOC Target (limite_batteria_manuale)"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_native_min_value = 10
     _attr_native_max_value = 100
@@ -88,7 +88,6 @@ class VehicleSocTargetNumber(_Base):
     Replica input_number.limite_batteria_auto (sincronizzato con number.elroq_limite_di_carica).
     Limite SOC assoluto: stop totale quando raggiunto.
     """
-    _attr_name = "Vehicle SOC Target (limite_batteria_auto)"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_native_min_value = 20
     _attr_native_max_value = 100
@@ -111,7 +110,6 @@ class ContractPowerNumber(_Base):
     Replica input_number.limite_potenza_contratto_w.
     Usato da Gestione Carichi (FORZA) per la modulazione.
     """
-    _attr_name = "Contract Power Limit (limite_potenza_contratto_w)"
     _attr_native_unit_of_measurement = UnitOfPower.WATT
     _attr_native_min_value = 1500
     _attr_native_max_value = 22000
@@ -137,7 +135,6 @@ class AllowedImportNumber(_Base):
     Offset aggiunto al surplus FV calcolato: amp_fv = (-rete + offset_w) / v_grid.
     Default 200W = permetti max 200W di import dalla rete mentre carichi con FV.
     """
-    _attr_name = "Allowed Grid Import Offset (limite_import_permesso)"
     _attr_native_unit_of_measurement = UnitOfPower.WATT
     _attr_native_min_value = 0
     _attr_native_max_value = 3000
@@ -163,7 +160,6 @@ class NightPowerLimitNumber(_Base):
     Limite di potenza usato in F3 notte da Gestione Fascia e Gestione Carichi
     (NON il limite contrattuale completo – più basso per non disturbare la casa di notte).
     """
-    _attr_name = "Night Charging Power Limit (ev_limite_notturno_w)"
     _attr_native_unit_of_measurement = UnitOfPower.WATT
     _attr_native_min_value = 1000
     _attr_native_max_value = 22000
@@ -186,7 +182,6 @@ class NightPowerLimitNumber(_Base):
 class BatteryCapacityNumber(_Base):
     """Usable battery capacity used by charging-time estimates."""
 
-    _attr_translation_key = NUMBER_BATTERY_CAPACITY
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
     _attr_native_min_value = 1
     _attr_native_max_value = 250

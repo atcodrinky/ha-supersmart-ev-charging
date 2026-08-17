@@ -74,7 +74,16 @@
   },
   "entity": {
     "sensor": {
-      "charging_mode": { "name": "Modalità ricarica" },
+      "charging_mode": {
+        "name": "Modalità ricarica",
+        "state": {
+          "idle": "Inattiva",
+          "pv_surplus": "Surplus FV",
+          "night": "Notte F3",
+          "force": "Forza",
+          "master_stop": "Master Stop"
+        }
+      },
       "pv_surplus": { "name": "Surplus FV" },
       "target_soc": { "name": "Target SOC attivo" },
       "time_remaining": { "name": "Tempo ricarica rimanente" },
