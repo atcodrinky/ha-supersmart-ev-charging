@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -12,7 +13,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .calculations import balanced_current, clamp_voltage, pv_current_values
+from .calculations import (
+    active_soc_target,
+    balanced_current,
+    clamp_voltage,
+    pv_current_values,
+)
 
 from .const import (
     DOMAIN,
@@ -51,6 +57,7 @@ from .const import (
     DEFAULT_ALLOWED_IMPORT_W,
     DEFAULT_MIN_CHARGE_CURRENT_A,
     DEFAULT_MAX_CHARGE_CURRENT_A,
+    DEFAULT_MAX_LOAD_CURRENT_A,
     DEFAULT_NIGHT_POWER_LIMIT_W,
     DEFAULT_USER_SOC_TARGET,
     DEFAULT_VEHICLE_SOC_TARGET,
@@ -65,6 +72,7 @@ from .const import (
     DEFAULT_MQTT_TOPIC_POWER_HOUSE,
     WB_STATE_CHARGING,
     WB_STATE_IDLE,
+    WB_STATE_WAITING,
     WB_STATES_READY,
     CHARGING_MODE_IDLE,
     CHARGING_MODE_PV_SURPLUS,
@@ -84,11 +92,12 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
 
     PRIORITÀ (dalla più alta):
       1. MASTER STOP  → revoca auth, blocca tutto
-      2. FORCE CHARGE → mode 2 (normal) + modula entro contratto, stop a limite_auto
-      3. SURPLUS FV   → mode 1 (solar), start ≥7A / stop <5.5A per 60s
-      4. NOTTE F3     → mode 2 (normal), solo se FV < 7A e SOC < limite_utente
-      5. STOP SOC     → stop se SOC ≥ limite_auto (assoluto) o ≥ limite_utente in F3 notte
-      6. IGIENE FV    → spegne solar_controller_active se FV < 7A per 60s senza caricare
+      2. STOP SOC     → stop assoluto se SOC ≥ limite_auto
+      3. FORCE CHARGE → mode 2 (normal) + modula entro contratto
+      4. SURPLUS FV   → mode 1 (solar), start ≥7A / stop <5.5A per 60s
+      5. NOTTE F3     → mode 2 (normal), solo se FV < 7A e SOC < limite_utente
+      6. STOP SOC F3  → stop se SOC ≥ limite_utente in F3 notte
+      7. IGIENE FV    → spegne solar_controller_active se FV < 7A per 60s senza caricare
 
     AUTORIZZAZIONE: via button.press su entità HA (button.silla_prism_autorizza/revoca),
     NON tramite topic MQTT separati – timestamp tracciati in variabili interne.
@@ -115,7 +124,6 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             _LOGGER,
-            config_entry=entry,
             name=DOMAIN,
         )
         self.entry = entry
@@ -209,8 +217,13 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}")
         self._save_task: asyncio.Task | None = None
 
-    async def _async_setup(self) -> None:
-        """Ripristina gli helper interni prima del primo aggiornamento."""
+    async def async_restore_state(self) -> None:
+        """Ripristina gli helper interni prima del primo aggiornamento.
+
+        Il caricamento viene richiamato esplicitamente da ``async_setup_entry``
+        per non dipendere dall'hook ``DataUpdateCoordinator._async_setup``, che
+        non esiste nelle versioni meno recenti di Home Assistant.
+        """
         saved = await self._store.async_load()
         if not saved:
             return
@@ -246,10 +259,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             data["wallbox_voltage_v"] = voltage
             data["critical_inputs_valid"] = all((
                 self._has_value(self._wallbox_state_entity),
-                self._has_value(self._wallbox_power_entity),
-                self._has_value(self._grid_entity),
-                self._has_value(self._pv_entity),
-                not self._total_power_entity or self._has_value(self._total_power_entity),
+                self._has_numeric_value(self._wallbox_power_entity),
+                self._has_numeric_value(self._grid_entity),
+                self._has_numeric_value(self._pv_entity),
+                not self._total_power_entity or self._has_numeric_value(self._total_power_entity),
             ))
 
             # Rete (+ = import dalla rete, - = export verso rete)
@@ -286,17 +299,17 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             data["pv_surplus_w"] = self.pv_surplus_w
 
             # Veicolo
-            soc_raw   = self._get_state(self._soc_entity)
-            soc_valid = soc_raw not in ("unknown", "unavailable", "none", "", None)
-            soc       = float(soc_raw) if soc_valid else 0.0
+            soc, soc_valid = self._get_valid_float(self._soc_entity)
             data["vehicle_soc"]       = soc
             data["vehicle_soc_valid"] = soc_valid
 
             # Sync Auto -> integrazione. Il verso opposto è gestito dal number.
             if self._charge_limit_entity and not self._vehicle_limit_sync_pending:
-                car_limit_raw = self._get_state(self._charge_limit_entity)
-                if car_limit_raw not in ("unknown", "unavailable", "none", "", None):
-                    self.vehicle_soc_target = float(car_limit_raw)
+                car_limit, car_limit_valid = self._get_valid_float(
+                    self._charge_limit_entity
+                )
+                if car_limit_valid:
+                    self.vehicle_soc_target = car_limit
                     if self.user_soc_target > self.vehicle_soc_target:
                         self.user_soc_target = self.vehicle_soc_target
 
@@ -305,7 +318,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             # Altrimenti la deriva dallo stato wallbox: qualsiasi stato != idle = connesso.
             # (Replica logica YAML: il veicolo è connesso se la wallbox non è idle)
             if self._connected_entity:
-                vehicle_connected = self._get_bool(self._connected_entity, default=False)
+                connected_state = self._get_state(self._connected_entity, "").lower()
+                vehicle_connected = connected_state in (
+                    "on", "true", "connected", "yes", "1",
+                    WB_STATE_WAITING, "pause", WB_STATE_CHARGING,
+                )
             else:
                 vehicle_connected = wb_state != WB_STATE_IDLE
             data["vehicle_connected"] = vehicle_connected
@@ -325,7 +342,13 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             data["sun_below_horizon"] = sun_below_horizon
 
             # Target SOC attivo
-            target_soc = self.vehicle_soc_target if self.force_charge else self.user_soc_target
+            target_soc = active_soc_target(
+                self.charging_mode,
+                self.force_charge,
+                self.solar_controller_active,
+                self.user_soc_target,
+                self.vehicle_soc_target,
+            )
             data["target_soc_active"] = target_soc
 
             # Corrente target wallbox (calcolata da amp_fv per display)
@@ -358,19 +381,27 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         return data
 
     # ── Loop principale di decisione ───────────────────────────────────────────
-    async def async_update_charging_logic(self, _now: datetime | None = None) -> None:
+    async def async_update_charging_logic(
+        self,
+        _now: datetime | None = None,
+        trigger_entity: str | None = None,
+    ) -> None:
         """Serializza le valutazioni avviate dal timer e dagli eventi di stato."""
         async with self._logic_lock:
-            await self._async_update_charging_logic(_now)
+            await self._async_update_charging_logic(_now, trigger_entity)
 
-    async def _async_update_charging_logic(self, _now: datetime | None = None) -> None:
+    async def _async_update_charging_logic(
+        self,
+        _now: datetime | None = None,
+        trigger_entity: str | None = None,
+    ) -> None:
         """
         Valuta le condizioni di ricarica ogni 30 s e invia comandi MQTT.
 
         Replica la logica delle automazioni YAML nell'ordine esatto di priorità:
           1. MASTER STOP
-          2. FORZA RICARICA (Gestione Carichi)
-          3. SOC ≥ limite_auto → STOP assoluto (Gestione SOC)
+          2. SOC ≥ limite_auto → STOP assoluto (Gestione SOC)
+          3. FORZA RICARICA (Gestione Carichi)
           4. SURPLUS FV ≥ 7A  → mode solar (Surplus FV)
           5. F3 + notte + SOC < limite_utente → mode normal (Gestione Fascia)
           6. F3 notte + SOC ≥ limite_utente + FV assente → STOP (Gestione SOC F3)
@@ -395,7 +426,9 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         voltage           = data.get("wallbox_voltage_v", 230.0)
 
         # ── 0. Veicolo scollegato → reset tutto ───────────────────────────────
-        if not vehicle_connected:
+        # Le automazioni originali eseguono il reset sullo stato ``idle``
+        # della wallbox, indipendentemente da un eventuale sensore veicolo.
+        if wb_state == WB_STATE_IDLE:
             changed = any((
                 self.master_stop,
                 self.force_charge,
@@ -546,7 +579,17 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                     "[SuperSmart] FV surplus %.1fA ≥ 7A – ciclo %d/%d",
                     amp_fv_target, self._pv_above_start_cycles, DEFAULT_PV_START_CONFIRM_CYCLES,
                 )
-                if (now - self._pv_above_since).total_seconds() >= 30:
+                # Le YAML avviano subito sul cambio stato della wallbox (o
+                # riattivando il controller FV); negli altri casi richiedono
+                # che la soglia resti vera per 30 secondi.
+                immediate_start = (
+                    trigger_entity == self._wallbox_state_entity
+                    or (
+                        self.solar_controller_active
+                        and trigger_entity == "solar_controller"
+                    )
+                )
+                if immediate_start or (now - self._pv_above_since).total_seconds() >= 30:
                     _LOGGER.info("[SuperSmart] FV stabile – avvio ricarica solare mode 1")
                     self.solar_controller_active = True
                     await self._set_mode(self._payload_solar)
@@ -585,7 +628,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 and vehicle_soc < self.user_soc_target
                 and wb_state in WB_STATES_READY):
 
-            amp_contratto = self._contratto_balanced_current(data, use_night_limit=True)
+            # L'automazione "Gestione Fascia" usa il limite contrattuale per
+            # decidere l'avvio. Solo la modulazione successiva usa il limite
+            # notturno ridotto ("Gestione Carichi").
+            amp_contratto = self._contratto_balanced_current(data, use_night_limit=False)
             if amp_contratto >= 7 and amp_fv < 6:
                 _LOGGER.info(
                     "[SuperSmart] F3 notte – avvio ricarica notturna mode 2 (SOC %.0f%% < %.0f%%)",
@@ -620,8 +666,12 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 await self._send_limit_if_changed(amp_contratto)
                 self.async_update_listeners()
                 return
-            elif amp_contratto < DEFAULT_PV_STOP_CURRENT_A:
-                # amp < 5.5 → stop soft (equivale al trigger low_margin_60s)
+            elif self._contratto_balanced_current(
+                data, use_night_limit=False
+            ) < DEFAULT_PV_STOP_CURRENT_A:
+                # Il trigger low_margin_60s delle YAML usa il limite
+                # contrattuale anche nel ramo notturno. La modulazione sopra,
+                # invece, resta correttamente basata sul limite notturno.
                 now = datetime.now()
                 self._night_below_since = self._night_below_since or now
                 self._pv_below_stop_cycles = int((now - self._night_below_since).total_seconds() // 30)
@@ -633,7 +683,9 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                     wb_state_now = self._get_state(self._wallbox_state_entity, WB_STATE_IDLE)
                     v_now        = self._safe_voltage()
                     if wb_state_now == WB_STATE_CHARGING:
-                        amp_contratto_now = self._contratto_balanced_current_now(v_now, use_night_limit=True)
+                        amp_contratto_now = self._contratto_balanced_current_now(
+                            v_now, use_night_limit=False
+                        )
                         if amp_contratto_now < DEFAULT_PV_STOP_CURRENT_A:
                             await self._set_mode(self._payload_pause)
                             await self._revoke()
@@ -714,12 +766,9 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         if self.master_stop:
             return
 
-        soc_raw  = self._get_state(self._soc_entity)
-        soc_valid = soc_raw not in ("unknown", "unavailable", "none", "", None)
+        soc, soc_valid = self._get_valid_float(self._soc_entity)
         if not soc_valid:
             return
-
-        soc            = float(soc_raw)
         v_raw          = self._get_float(self._wallbox_voltage_entity, 0.0)
         voltage        = float(max(min(v_raw if v_raw > 0 else 230.0, 260.0), 180.0))
         grid_w         = self._get_float(self._grid_entity)
@@ -730,13 +779,15 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         continua_notturna = self.night_charging_enabled and is_offpeak and (soc < self.user_soc_target)
         continua_fv       = amp_fv_target >= DEFAULT_PV_START_CURRENT_A
 
-        if continua_fv:
+        # Stesso ordine del choose YAML: la prosecuzione F3 ha precedenza sul
+        # FV quando entrambe le condizioni sono vere.
+        if continua_notturna:
+            _LOGGER.info("[SuperSmart] Uscita FORZA: F3 notturna – continua ricarica grid")
+            self.charging_mode = CHARGING_MODE_NIGHT
+        elif continua_fv:
             _LOGGER.info("[SuperSmart] Uscita FORZA: surplus FV disponibile – attiva solar controller")
             self.solar_controller_active = True
             self.charging_mode           = CHARGING_MODE_PV_SURPLUS
-        elif continua_notturna:
-            _LOGGER.info("[SuperSmart] Uscita FORZA: F3 notturna – continua ricarica grid")
-            self.charging_mode = CHARGING_MODE_NIGHT
         else:
             _LOGGER.info("[SuperSmart] Uscita FORZA: nessuna condizione – stop ricarica")
             await self._set_mode(self._payload_pause)
@@ -767,7 +818,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             data.get("total_power_w", 0.0),
             data.get("wallbox_power_w", 0.0),
             voltage,
-            DEFAULT_MAX_CHARGE_CURRENT_A,
+            DEFAULT_MAX_LOAD_CURRENT_A,
         )
 
     def _contratto_balanced_current_now(self, voltage: float, use_night_limit: bool) -> float:
@@ -786,7 +837,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             total_w = grid_w + pv_w
         limite_w  = self.night_power_limit_w if use_night_limit else self._contract_power_w
         return balanced_current(
-            limite_w, total_w, wallbox_w, voltage, DEFAULT_MAX_CHARGE_CURRENT_A
+            limite_w, total_w, wallbox_w, voltage, DEFAULT_MAX_LOAD_CURRENT_A
         )
 
     def _safe_voltage(self) -> float:
@@ -803,8 +854,36 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
 
     def async_update_listeners(self) -> None:
         """Aggiorna le entità e persiste gli helper interni con debounce."""
+        self._refresh_target_estimates()
         super().async_update_listeners()
         self._schedule_save()
+
+    def _refresh_target_estimates(self) -> None:
+        """Allinea target e stime anche dopo un cambio modalità interno."""
+        if not self.data:
+            return
+        target_soc = active_soc_target(
+            self.charging_mode,
+            self.force_charge,
+            self.solar_controller_active,
+            self.user_soc_target,
+            self.vehicle_soc_target,
+        )
+        self.data["target_soc_active"] = target_soc
+        soc = float(self.data.get("vehicle_soc", 0.0))
+        wallbox_kw = float(self.data.get("wallbox_power_w", 0.0)) / 1000.0
+        remaining_kwh = max(
+            0.0, (target_soc - soc) / 100.0 * self._battery_capacity_kwh
+        )
+        remaining_min = (
+            remaining_kwh / wallbox_kw * 60 if wallbox_kw > 0.1 else None
+        )
+        self.data["remaining_minutes"] = remaining_min
+        self.data["charge_end_time"] = (
+            datetime.now() + timedelta(minutes=remaining_min)
+            if remaining_min is not None
+            else None
+        )
 
     def _schedule_save(self) -> None:
         if self._save_task and not self._save_task.done():
@@ -845,9 +924,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
 
         if self._state_change_task and not self._state_change_task.done():
             self._state_change_task.cancel()
-        self._state_change_task = self.hass.async_create_task(self._debounced_logic())
+        self._state_change_task = self.hass.async_create_task(
+            self._debounced_logic(entity_id)
+        )
 
-    async def _debounced_logic(self) -> None:
+    async def _debounced_logic(self, trigger_entity: str) -> None:
         task = asyncio.current_task()
         try:
             await asyncio.sleep(0.5)
@@ -856,7 +937,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         finally:
             if self._state_change_task is task:
                 self._state_change_task = None
-        await self.async_update_charging_logic()
+        await self.async_update_charging_logic(trigger_entity=trigger_entity)
 
     async def async_set_vehicle_soc_target(self, value: float) -> None:
         """Replica il sync HA -> Auto con ritardo di 3 secondi."""
@@ -974,7 +1055,16 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         )
         for topic, value in values:
             if topic:
-                await mqtt.async_publish(self.hass, topic, str(round(float(value))), qos=1)
+                try:
+                    await mqtt.async_publish(
+                        self.hass, topic, str(round(float(value))), qos=0
+                    )
+                except Exception as err:  # broker non disponibile: prossimo ciclo
+                    _LOGGER.warning(
+                        "[SuperSmart] Publish telemetria MQTT fallito su %s: %s",
+                        topic,
+                        err,
+                    )
 
     # ── Comandi MQTT ──────────────────────────────────────────────────────────
     async def _authorize(self) -> None:
@@ -1015,7 +1105,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         """Invia limite corrente via MQTT. Salva last_limit_sent_a."""
         # La YAML usa float con 1 decimale: "6.0", "7.5" ecc. (NON int clamped)
         clamped = round(
-            min(DEFAULT_MAX_CHARGE_CURRENT_A, max(DEFAULT_MIN_CHARGE_CURRENT_A, current_a)),
+            min(DEFAULT_MAX_LOAD_CURRENT_A, max(DEFAULT_MIN_CHARGE_CURRENT_A, current_a)),
             1,
         )
         if self._mqtt_enabled:
@@ -1073,6 +1163,19 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         except (ValueError, TypeError):
             return default
 
+    def _get_valid_float(self, entity_id: str) -> tuple[float, bool]:
+        """Restituisce un numero finito e la sua validità senza sollevare errori."""
+        if not entity_id:
+            return 0.0, False
+        state = self.hass.states.get(entity_id)
+        if not state or state.state.lower() in ("unknown", "unavailable", "none", ""):
+            return 0.0, False
+        try:
+            value = float(state.state)
+        except (ValueError, TypeError):
+            return 0.0, False
+        return (value, True) if math.isfinite(value) else (0.0, False)
+
     def _get_bool(self, entity_id: str, default: bool = False) -> bool:
         if not entity_id:
             return default
@@ -1084,6 +1187,9 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             return False
         state = self.hass.states.get(entity_id)
         return bool(state and state.state not in ("unknown", "unavailable", "none", ""))
+
+    def _has_numeric_value(self, entity_id: str) -> bool:
+        return self._get_valid_float(entity_id)[1]
 
     @staticmethod
     def _w_to_a(watts: float, voltage: float) -> float:
