@@ -9,7 +9,7 @@
 Integrazione HACS che riunisce le automazioni `EV - ...` per Skoda Elroq/Enyaq
 e Silla Prism in un solo controller configurabile.
 
-La versione 1.4.0 include:
+La versione v0.9.0-beta.1 include:
 
 - priorità `Master Stop → SOC assoluto → FORZA → surplus FV → notte F3 → idle`;
 - FV incrementale con avvio a 7 A per 30 s e stop sotto 5,5 A per 60 s;
