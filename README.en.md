@@ -2,15 +2,16 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-0.9.0--beta.3-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
+[![Version](https://img.shields.io/badge/version-0.9.0--beta.4-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
 
 [🇮🇹 Italiano](README.md) · 🇬🇧 English
 
 A HACS integration that replaces the original `EV - ...` automations for a
 Skoda Elroq/Enyaq and Silla Prism with one configurable charging controller.
 
-Version 0.9.0-beta.3 provides:
+Version 0.9.0-beta.4 provides:
 
+- configurable usable battery capacity, also exposed as a number entity;
 - classification as a Home Assistant service, with setup listed under Integrations;
 - priority order `Master Stop → absolute SOC → FORCE → PV surplus → night F3 → idle`;
 - incremental PV control with a 7 A/30 s start threshold and 5.5 A/60 s stop threshold;
@@ -83,6 +84,7 @@ None. The integration creates entities replacing the original helpers:
 | `input_number.limite_import_permesso` | **Allowed Grid Import** number |
 | `input_number.limite_potenza_contratto_w` | **Contract Power** number |
 | `input_number.ev_limite_notturno_w` | **Night Power Limit** number |
+| `input_number.ev_capacita_batteria_kwh` | **Usable Battery Capacity** number |
 | `input_number.wallbox_last_limit_sent` | internal controller state |
 | authorization/revocation datetimes | internal timestamps |
 | charging-mode input select | **Charging Mode** sensor |
@@ -98,8 +100,10 @@ None. The integration creates entities replacing the original helpers:
    **SuperSmart EV Charging**.
 
 Battery capacity and feature flags can later be changed through **Configure**.
-Power limits and SOC targets are adjusted through the number entities. To change
-source entities, remove and add the integration again.
+Usable capacity can also be adjusted directly from the integration's number
+entity to support different EVs and capacity degradation over time. Power limits
+and SOC targets are adjusted through the other number entities. To change source
+entities, remove and add the integration again.
 
 ## Silla Prism defaults
 
@@ -154,8 +158,12 @@ seconds. Decisions are serialized to avoid overlapping MQTT publications.
 - Sensors: charging mode, PV surplus, active SOC target, remaining time,
   estimated completion time and wallbox target current.
 - Switches: Master Stop, Force Charge, Solar Controller and Night/F3 Charging.
-- Numbers: user/vehicle SOC targets, contract power, allowed grid import and
-  night charging power limit.
+- Numbers: user/vehicle SOC targets, usable battery capacity, contract power,
+  allowed grid import and night charging power limit.
+
+The estimate uses `((target SOC - SOC) / 100 × usable capacity kWh) / wallbox
+power kW`. Power is instantaneous and charging efficiency is assumed to be
+100%; below 100 W, remaining time and estimated completion are unavailable.
 
 Home Assistant assigns entity IDs according to the device name and language.
 Check the actual IDs under **Settings → Devices & services → Entities**.
@@ -173,6 +181,7 @@ entities:
   - entity: sensor.supersmart_ev_charging_charging_time_remaining
   - entity: number.supersmart_ev_charging_user_soc_target
   - entity: number.supersmart_ev_charging_vehicle_soc_target
+  - entity: number.supersmart_ev_charging_usable_battery_capacity
   - entity: switch.supersmart_ev_charging_master_stop
   - entity: switch.supersmart_ev_charging_force_charge
   - entity: switch.supersmart_ev_charging_night_off_peak_charging

@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .calculations import (
     active_soc_target,
     balanced_current,
+    charging_time_minutes,
     clamp_voltage,
     pv_current_values,
 )
@@ -356,9 +357,12 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             data["wallbox_current_target_a"] = self.wallbox_current_target_a
 
             # Stima tempo rimanente
-            remaining_kwh = max(0.0, (target_soc - soc) / 100.0 * self._battery_capacity_kwh)
-            wallbox_kw    = wb_w / 1000.0
-            remaining_min = (remaining_kwh / wallbox_kw * 60) if wallbox_kw > 0.1 else None
+            remaining_min = charging_time_minutes(
+                soc,
+                target_soc,
+                self._battery_capacity_kwh,
+                wb_w,
+            )
             data["remaining_minutes"] = remaining_min
             data["charge_end_time"]   = (
                 datetime.now() + timedelta(minutes=remaining_min)
@@ -871,12 +875,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         )
         self.data["target_soc_active"] = target_soc
         soc = float(self.data.get("vehicle_soc", 0.0))
-        wallbox_kw = float(self.data.get("wallbox_power_w", 0.0)) / 1000.0
-        remaining_kwh = max(
-            0.0, (target_soc - soc) / 100.0 * self._battery_capacity_kwh
-        )
-        remaining_min = (
-            remaining_kwh / wallbox_kw * 60 if wallbox_kw > 0.1 else None
+        remaining_min = charging_time_minutes(
+            soc,
+            target_soc,
+            self._battery_capacity_kwh,
+            float(self.data.get("wallbox_power_w", 0.0)),
         )
         self.data["remaining_minutes"] = remaining_min
         self.data["charge_end_time"] = (
@@ -884,6 +887,14 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             if remaining_min is not None
             else None
         )
+
+    async def async_set_battery_capacity(self, value: float) -> None:
+        """Update usable battery capacity and persist it in config options."""
+        capacity = round(float(value), 1)
+        self._battery_capacity_kwh = capacity
+        self.async_update_listeners()
+        options = {**self.entry.options, CONF_BATTERY_CAPACITY_KWH: capacity}
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     def _schedule_save(self) -> None:
         if self._save_task and not self._save_task.done():

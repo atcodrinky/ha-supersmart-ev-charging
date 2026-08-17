@@ -56,6 +56,16 @@ class CalculationTests(unittest.TestCase):
             80,
         )
 
+    def test_charging_time_uses_configured_usable_capacity(self) -> None:
+        # 60% of a 77 kWh usable battery is 46.2 kWh: at 7.7 kW = 6 hours.
+        self.assertAlmostEqual(
+            calculations.charging_time_minutes(20, 80, 77, 7700),
+            360,
+        )
+        self.assertIsNone(
+            calculations.charging_time_minutes(20, 80, 77, 100)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

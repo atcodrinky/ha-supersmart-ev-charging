@@ -131,7 +131,10 @@ class TimeRemainingSensor(_Base):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"remaining_minutes": (self.coordinator.data or {}).get("remaining_minutes")}
+        return {
+            "remaining_minutes": (self.coordinator.data or {}).get("remaining_minutes"),
+            "usable_battery_capacity_kwh": self.coordinator._battery_capacity_kwh,
+        }
 
 
 class ChargeEndTimeSensor(_Base):
