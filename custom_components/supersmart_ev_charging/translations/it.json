@@ -6,7 +6,7 @@
         "description": "Configura potenza contrattuale, batteria e target SOC. I target SOC possono essere modificati in seguito dalle entità number.",
         "data": {
           "contract_power_w": "Potenza contratto (W)",
-          "battery_capacity_kwh": "Capacità batteria veicolo (kWh)",
+          "battery_capacity_kwh": "Capacità utile batteria veicolo (kWh)",
           "tariff_enabled": "Abilita ricarica in fascia off-peak (F3)",
           "mqtt_enabled": "Abilita controllo wallbox via MQTT",
           "energy_publish_enabled": "Invia telemetria energia alla Prism via MQTT",
@@ -64,7 +64,7 @@
       "init": {
         "title": "SuperSmart EV Charging – Opzioni",
         "data": {
-          "battery_capacity_kwh": "Capacità batteria (kWh)",
+          "battery_capacity_kwh": "Capacità utile batteria (kWh)",
           "tariff_enabled": "Abilita ricarica off-peak F3",
           "mqtt_enabled": "Abilita MQTT",
           "energy_publish_enabled": "Invia telemetria energia alla Prism"
@@ -92,7 +92,8 @@
       "vehicle_soc_target": { "name": "Target SOC veicolo (Surplus FV / Forza)" },
       "contract_power": { "name": "Potenza contrattuale" },
       "allowed_import": { "name": "Import rete permesso (offset FV)" },
-      "night_power_limit": { "name": "Limite potenza notturna F3" }
+      "night_power_limit": { "name": "Limite potenza notturna F3" },
+      "battery_capacity": { "name": "Capacità utile batteria" }
     }
   }
 }

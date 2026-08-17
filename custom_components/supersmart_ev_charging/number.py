@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfPower
+from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -15,6 +15,7 @@ from .const import (
     NUMBER_CONTRACT_POWER,
     NUMBER_ALLOWED_IMPORT,
     NUMBER_NIGHT_POWER_LIMIT,
+    NUMBER_BATTERY_CAPACITY,
 )
 from .coordinator import SuperSmartEvChargingCoordinator
 
@@ -36,6 +37,7 @@ async def async_setup_entry(
         ContractPowerNumber(coordinator, entry),
         AllowedImportNumber(coordinator, entry),
         NightPowerLimitNumber(coordinator, entry),
+        BatteryCapacityNumber(coordinator, entry),
     ])
 
 
@@ -179,3 +181,24 @@ class NightPowerLimitNumber(_Base):
         self.coordinator.night_power_limit_w = value
         self.coordinator.async_update_listeners()
         await self.coordinator.async_update_charging_logic()
+
+
+class BatteryCapacityNumber(_Base):
+    """Usable battery capacity used by charging-time estimates."""
+
+    _attr_translation_key = NUMBER_BATTERY_CAPACITY
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_native_min_value = 1
+    _attr_native_max_value = 250
+    _attr_native_step = 0.1
+    _attr_icon = "mdi:car-battery"
+
+    def __init__(self, c, e):
+        super().__init__(c, e, NUMBER_BATTERY_CAPACITY)
+
+    @property
+    def native_value(self) -> float:
+        return self.coordinator._battery_capacity_kwh
+
+    async def async_set_native_value(self, value: float) -> None:
+        await self.coordinator.async_set_battery_capacity(value)

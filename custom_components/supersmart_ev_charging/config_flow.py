@@ -91,7 +91,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=vol.Schema({
                 vol.Required(CONF_CONTRACT_POWER_W,             default=DEFAULT_CONTRACT_POWER_W):    vol.Coerce(int),
-                vol.Required(CONF_BATTERY_CAPACITY_KWH,         default=DEFAULT_BATTERY_CAPACITY_KWH): vol.Coerce(float),
+                vol.Required(CONF_BATTERY_CAPACITY_KWH,         default=DEFAULT_BATTERY_CAPACITY_KWH): vol.All(vol.Coerce(float), vol.Range(min=1, max=250)),
                 vol.Required(CONF_INITIAL_USER_SOC_TARGET,      default=DEFAULT_USER_SOC_TARGET):     vol.All(vol.Coerce(int), vol.Range(min=10, max=100)),
                 vol.Required(CONF_INITIAL_VEHICLE_SOC_TARGET,   default=DEFAULT_VEHICLE_SOC_TARGET):  vol.All(vol.Coerce(int), vol.Range(min=20, max=100)),
                 vol.Required(CONF_TARIFF_ENABLED,               default=True): bool,
@@ -226,7 +226,7 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(
                     CONF_BATTERY_CAPACITY_KWH,
                     default=d.get(CONF_BATTERY_CAPACITY_KWH, DEFAULT_BATTERY_CAPACITY_KWH),
-                ): vol.Coerce(float),
+                ): vol.All(vol.Coerce(float), vol.Range(min=1, max=250)),
                 vol.Required(
                     CONF_TARIFF_ENABLED,
                     default=d.get(CONF_TARIFF_ENABLED, True),

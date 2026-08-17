@@ -49,3 +49,20 @@ def active_soc_target(
     ):
         return vehicle_target
     return user_target
+
+
+def charging_time_minutes(
+    current_soc: float,
+    target_soc: float,
+    usable_capacity_kwh: float,
+    wallbox_power_w: float,
+) -> float | None:
+    """Estimate minutes to target from usable capacity and current AC power."""
+    power_kw = abs(wallbox_power_w) / 1000.0
+    if power_kw <= 0.1:
+        return None
+    remaining_kwh = max(
+        0.0,
+        (target_soc - current_soc) / 100.0 * usable_capacity_kwh,
+    )
+    return remaining_kwh / power_kw * 60.0
