@@ -11,7 +11,7 @@ from homeassistant.const import Platform
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 
-from .const import DOMAIN, DEFAULT_MIN_CHARGE_CURRENT_A
+from .const import DOMAIN, DEFAULT_MIN_CHARGE_CURRENT_A, DEFAULT_MAX_LOAD_CURRENT_A
 from .coordinator import SuperSmartEvChargingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,6 +28,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     coordinator = SuperSmartEvChargingCoordinator(hass, entry)
+    await coordinator.async_restore_state()
     await coordinator.async_config_entry_first_refresh()
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
@@ -49,7 +50,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DOMAIN,
         "set_charge_limit",
         svc_set_limit,
-        schema=vol.Schema({vol.Required("current_a"): vol.All(vol.Coerce(float), vol.Range(min=6, max=25))}),
+        schema=vol.Schema({
+            vol.Required("current_a"): vol.All(
+                vol.Coerce(float),
+                vol.Range(min=DEFAULT_MIN_CHARGE_CURRENT_A, max=DEFAULT_MAX_LOAD_CURRENT_A),
+            )
+        }),
     )
 
     # ── Background charging loop (every 30 s)
@@ -93,8 +99,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
-    # Valutazione iniziale: non attendere il primo intervallo di 30 secondi.
-    await coordinator.async_update_charging_logic()
+    # Valutazione iniziale senza bloccare il setup: un broker MQTT o un button
+    # momentaneamente non disponibile non deve impedire la creazione del
+    # dispositivo e delle entità in Home Assistant.
+    hass.async_create_task(coordinator.async_update_charging_logic())
     return True
 
 
