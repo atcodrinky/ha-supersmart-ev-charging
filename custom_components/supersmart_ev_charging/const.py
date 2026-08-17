@@ -137,6 +137,7 @@ SENSOR_TARGET_SOC             = "target_soc"
 SENSOR_TIME_REMAINING         = "time_remaining"
 SENSOR_CHARGE_END_TIME        = "charge_end_time"
 SENSOR_WALLBOX_CURRENT_TARGET = "wallbox_current_target"
+SENSOR_WALLBOX_CURRENT_ACTUAL = "wallbox_current_actual"
 
 SWITCH_MASTER_STOP      = "master_stop"
 SWITCH_FORCE_CHARGE     = "force_charge"

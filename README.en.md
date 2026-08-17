@@ -2,15 +2,17 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-0.9.0--beta.7-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
+[![Version](https://img.shields.io/badge/version-0.9.0--beta.8-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
 
 [🇮🇹 Italiano](README.md) · 🇬🇧 English
 
 A HACS integration that replaces the original `EV - ...` automations for a
 Skoda Elroq/Enyaq and Silla Prism with one configurable charging controller.
 
-Version 0.9.0-beta.7 provides:
+Version 0.9.0-beta.8 provides:
 
+- target current aligned with the last limit sent in PV, FORCE and F3 modes;
+- new actual wallbox current estimated from power and voltage;
 - timezone-aware estimated charge-end timestamp compatible with Home Assistant;
 - asymmetric SOC target sync: 3 seconds HA → vehicle, immediate vehicle/MyŠkoda → HA;
 - restart behavior: later HA changes cancel the previous pending command;
@@ -160,7 +162,7 @@ seconds. Decisions are serialized to avoid overlapping MQTT publications.
 ## Created entities
 
 - Sensors: charging mode, PV surplus, active SOC target, remaining time,
-  estimated completion time and wallbox target current.
+  estimated completion time, wallbox target current and actual wallbox current.
 - Switches: Master Stop, Force Charge, Solar Controller and Night/F3 Charging.
 - Numbers: user/vehicle SOC targets, usable battery capacity, contract power,
   allowed grid import and night charging power limit.
@@ -183,6 +185,7 @@ entities:
   - entity: sensor.supersmart_ev_charging_charging_mode
   - entity: sensor.supersmart_ev_charging_pv_surplus
   - entity: sensor.supersmart_ev_charging_charging_time_remaining
+  - entity: sensor.supersmart_ev_charging_actual_wallbox_current
   - entity: number.supersmart_ev_charging_user_soc_target
   - entity: number.supersmart_ev_charging_vehicle_soc_target
   - entity: number.supersmart_ev_charging_usable_battery_capacity

@@ -20,6 +20,7 @@ from .calculations import (
     charging_time_minutes,
     clamp_voltage,
     pv_current_values,
+    wallbox_current_from_power,
 )
 
 from .const import (
@@ -355,9 +356,15 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             )
             data["target_soc_active"] = target_soc
 
-            # Corrente target wallbox (calcolata da amp_fv per display)
-            self.wallbox_current_target_a = max(0.0, amp_new_raw)
+            # Il target è l'ultimo limite realmente inviato alla wallbox,
+            # indipendentemente dalla modalità. La corrente effettiva è invece
+            # stimata da potenza/tensione e viene esposta separatamente.
+            self.wallbox_current_target_a = self.last_limit_sent_a
             data["wallbox_current_target_a"] = self.wallbox_current_target_a
+            data["wallbox_current_actual_a"] = wallbox_current_from_power(
+                wb_w,
+                voltage,
+            )
 
             # Stima tempo rimanente
             remaining_min = charging_time_minutes(
@@ -1179,6 +1186,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self.hass, self._topic_set_current, f"{clamped:.1f}", qos=1
             )
         self.last_limit_sent_a = clamped
+        self.wallbox_current_target_a = clamped
+        if self.data is not None:
+            self.data["wallbox_current_target_a"] = clamped
+        self.async_update_listeners()
         _LOGGER.debug("[SuperSmart] Corrente %.1fA → %s", clamped, self._topic_set_current)
 
     async def _send_limit_if_changed(self, current_a: float) -> None:

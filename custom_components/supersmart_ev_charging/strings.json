@@ -88,7 +88,8 @@
       "target_soc": { "name": "Target SOC attivo" },
       "time_remaining": { "name": "Tempo ricarica rimanente" },
       "charge_end_time": { "name": "Fine ricarica stimata" },
-      "wallbox_current_target": { "name": "Corrente target wallbox" }
+      "wallbox_current_target": { "name": "Corrente target wallbox" },
+      "wallbox_current_actual": { "name": "Corrente effettiva wallbox" }
     },
     "switch": {
       "master_stop": { "name": "Master Stop" },
