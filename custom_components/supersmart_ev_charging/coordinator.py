@@ -215,6 +215,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._notification_tasks: set[asyncio.Task] = set()
         self._last_notified_mode: str = "sconosciuta"
         self._vehicle_limit_sync_pending = False
+        self._vehicle_limit_sync_task: asyncio.Task | None = None
+        self._vehicle_limit_requested_value: float | None = None
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}")
         self._save_task: asyncio.Task | None = None
 
@@ -933,6 +935,35 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         if entity_id == self._wallbox_state_entity and old_state != new_state:
             self._schedule_charge_notification(old_state, new_state)
 
+        # Auto/MySkoda -> integrazione: nessun ritardo. Se durante l'attesa di
+        # un comando HA arriva un valore diverso dall'auto, replica `mode:
+        # restart` del vecchio YAML: annulla il comando in attesa e accetta
+        # immediatamente il valore dell'auto. Un valore uguale a quello
+        # richiesto è invece la conferma del nostro comando.
+        if entity_id == self._charge_limit_entity:
+            car_limit, car_limit_valid = self._get_valid_float(entity_id)
+            if car_limit_valid:
+                requested = self._vehicle_limit_requested_value
+                if (
+                    self._vehicle_limit_sync_pending
+                    and requested is not None
+                    and car_limit != requested
+                ):
+                    if (
+                        self._vehicle_limit_sync_task
+                        and not self._vehicle_limit_sync_task.done()
+                    ):
+                        self._vehicle_limit_sync_task.cancel()
+                    self._vehicle_limit_sync_task = None
+                    self._vehicle_limit_sync_pending = False
+                    self._vehicle_limit_requested_value = None
+
+                if not self._vehicle_limit_sync_pending or car_limit == requested:
+                    self.vehicle_soc_target = car_limit
+                    if self.user_soc_target > car_limit:
+                        self.user_soc_target = car_limit
+                    self.async_update_listeners()
+
         if self._state_change_task and not self._state_change_task.done():
             self._state_change_task.cancel()
         self._state_change_task = self.hass.async_create_task(
@@ -951,16 +982,29 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         await self.async_update_charging_logic(trigger_entity=trigger_entity)
 
     async def async_set_vehicle_soc_target(self, value: float) -> None:
-        """Replica il sync HA -> Auto con ritardo di 3 secondi."""
+        """Schedule HA -> vehicle sync after 3 seconds; latest value wins."""
         self.vehicle_soc_target = value
         if self.user_soc_target > value:
             self.user_soc_target = value
+
+        if self._charge_limit_entity:
+            if (
+                self._vehicle_limit_sync_task
+                and not self._vehicle_limit_sync_task.done()
+            ):
+                self._vehicle_limit_sync_task.cancel()
+            self._vehicle_limit_sync_pending = True
+            self._vehicle_limit_requested_value = value
+            self._vehicle_limit_sync_task = self.hass.async_create_task(
+                self._delayed_vehicle_soc_target_sync(value)
+            )
+
         self.async_update_listeners()
         self.hass.async_create_task(self.async_update_charging_logic())
-        if not self._charge_limit_entity:
-            return
 
-        self._vehicle_limit_sync_pending = True
+    async def _delayed_vehicle_soc_target_sync(self, value: float) -> None:
+        """Send only the latest HA target after the 3-second activation delay."""
+        task = asyncio.current_task()
         try:
             await asyncio.sleep(3)
             current = self._get_float(self._charge_limit_entity, value)
@@ -973,8 +1017,13 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 {"entity_id": self._charge_limit_entity, "value": value},
                 blocking=True,
             )
+        except asyncio.CancelledError:
+            return
         finally:
-            self._vehicle_limit_sync_pending = False
+            if self._vehicle_limit_sync_task is task:
+                self._vehicle_limit_sync_task = None
+                self._vehicle_limit_sync_pending = False
+                self._vehicle_limit_requested_value = None
 
     def _schedule_charge_notification(self, old_state: str, new_state: str) -> None:
         if not self._notify_service:
@@ -1048,6 +1097,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
     async def async_shutdown(self) -> None:
         if self._state_change_task and not self._state_change_task.done():
             self._state_change_task.cancel()
+        if (
+            self._vehicle_limit_sync_task
+            and not self._vehicle_limit_sync_task.done()
+        ):
+            self._vehicle_limit_sync_task.cancel()
         for task in list(self._notification_tasks):
             task.cancel()
         if self._save_task and not self._save_task.done():

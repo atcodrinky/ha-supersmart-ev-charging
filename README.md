@@ -2,15 +2,17 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-0.9.0--beta.5-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
+[![Version](https://img.shields.io/badge/version-0.9.0--beta.6-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
 
 🇮🇹 Italiano · [🇬🇧 English](README.en.md)
 
 Integrazione HACS che riunisce le automazioni `EV - ...` per Skoda Elroq/Enyaq
 e Silla Prism in un solo controller configurabile.
 
-La versione 0.9.0-beta.5 include:
+La versione 0.9.0-beta.6 include:
 
+- sync target SOC asimmetrico: 3 s HA → auto, immediato auto/MyŠkoda → HA;
+- comportamento restart: modifiche HA successive annullano il comando precedente;
 - nomi di tutte le entità tradotti nella lingua backend di Home Assistant alla prima creazione;
 - capacità utile della batteria configurabile e modificabile come entità number;
 - classificazione come servizio Home Assistant, con configurazione nella scheda Integrazioni;
