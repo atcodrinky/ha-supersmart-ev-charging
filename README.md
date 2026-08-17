@@ -2,211 +2,178 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-0.9.0--beta.9-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
 
 🇮🇹 Italiano · [🇬🇧 English](README.en.md)
 
-Integrazione HACS che riunisce le automazioni `EV - ...` per Skoda Elroq/Enyaq
-e Silla Prism in un solo controller configurabile.
+SuperSmart EV Charging riunisce in un'unica integrazione Home Assistant la
+gestione della ricarica da surplus fotovoltaico, la ricarica notturna, il
+bilanciamento dinamico dei carichi e i comandi manuali della wallbox.
 
-La versione 0.9.0-beta.9 include:
+Nasce dalla logica delle automazioni per **Skoda Elroq/Enyaq e Silla Prism**, ma
+può essere configurata per altri veicoli e wallbox che espongono entità e
+comandi equivalenti.
 
-- offset FV configurabile da `-500` a `+500 W` per mantenere un margine di esportazione ed evitare import durante le oscillazioni;
-- corrente target allineata all'ultimo limite inviato in FV, FORZA e F3;
-- nuova corrente effettiva wallbox stimata da potenza e tensione;
-- timestamp di fine ricarica timezone-aware compatibile con Home Assistant;
-- sync target SOC asimmetrico: 3 s HA → auto, immediato auto/MyŠkoda → HA;
-- comportamento restart: modifiche HA successive annullano il comando precedente;
-- nomi di tutte le entità tradotti nella lingua backend di Home Assistant alla prima creazione;
-- capacità utile della batteria configurabile e modificabile come entità number;
-- classificazione come servizio Home Assistant, con configurazione nella scheda Integrazioni;
-- priorità `Master Stop → SOC assoluto → FORZA → surplus FV → notte F3 → idle`;
-- FV incrementale con avvio a 7 A per 30 s e stop sotto 5,5 A per 60 s;
-- bilanciamento carichi e anti-spam 0,5 A: massimo 25 A in FV e 32 A in FORZA/notte;
-- soft-stop con verifica dopo 20 s in FORZA e in F3;
-- uscita intelligente da FORZA;
-- due target SOC con protezione `utente ≤ veicolo`;
-- target attivo corretto: veicolo in FORZA/FV, utente in notte F3;
-- sincronizzazione bidirezionale con il limite SOC dell'auto;
-- reset di Master Stop, FORZA e FV allo scollegamento;
-- telemetria MQTT Prism e notifiche opzionali.
+> [!WARNING]
+> Disattiva le vecchie automazioni EV prima di attivare l'integrazione: due
+> controller contemporanei potrebbero inviare comandi concorrenti alla wallbox.
 
-> Non lasciare attive insieme questa integrazione e le vecchie automazioni:
-> invierebbero comandi concorrenti alla stessa wallbox.
+## Funzionalità
 
-## Requisiti
+| Funzione | Descrizione |
+|---|---|
+| ☀️ **Surplus FV** | Modula la corrente usando l'energia solare disponibile e un offset di rete configurabile |
+| 🌙 **Ricarica notturna** | Carica nella fascia off-peak scelta, per esempio F3, fino al target SOC utente |
+| ⚡ **Load balancing** | Limita la ricarica in base alla potenza contrattuale e ai consumi dell'abitazione |
+| 🔋 **Doppio target SOC** | Target utente per la notte e target veicolo per FV e Forza Ricarica |
+| 🚀 **Forza Ricarica** | Avvia la ricarica indipendentemente da fascia tariffaria e surplus FV |
+| 🛑 **Master Stop** | Revoca immediatamente l'autorizzazione e blocca ogni modalità di ricarica |
+| 🔄 **Sincronizzazione SOC** | Sincronizza il target veicolo con il limite di carica dell'auto, se configurato |
+| ⏱️ **Stime di ricarica** | Calcola tempo rimanente e ora di fine usando SOC, capacità utile e potenza reale |
+| 📡 **MQTT configurabile** | Topic, payload e telemetria configurabili; autorizzazione e revoca possono usare button HA |
+| 🛡️ **Protezioni operative** | Ingressi validati, isteresi FV, corrente minima, limiti massimi e anti-spam dei comandi |
 
-- Home Assistant con MQTT configurato;
+## Compatibilità e requisiti
+
+### Requisiti
+
+- Home Assistant 2024.1 o successivo;
 - HACS per l'installazione come repository personalizzato;
-- wallbox con stato, potenza e comandi equivalenti a Silla Prism;
-- veicolo con sensore SOC.
+- un sensore del SOC del veicolo;
+- sensori di potenza rete, produzione FV, stato e potenza wallbox;
+- MQTT configurato in Home Assistant se si desidera il controllo automatico
+  della modalità e della corrente della wallbox.
 
-## Compatibilità
+### Convenzioni richieste
 
-L'integrazione nasce dalla configurazione **Skoda Elroq/Enyaq + Silla Prism**, ma
-può essere utilizzata con altri veicoli e wallbox se espongono in Home Assistant
-gli stessi tipi di sensore e comandi MQTT.
+- La potenza di rete deve essere **positiva in import** e **negativa in export**.
+- Le potenze devono essere espresse in Watt.
+- Lo stato wallbox deve esporre i valori `idle`, `waiting`, `pause` e
+  `charging`.
+- Per wallbox diverse da Silla Prism occorrono topic e payload equivalenti a
+  quelli richiesti dalla configurazione MQTT.
+- Un ingresso critico `unknown` o `unavailable` sospende l'invio di nuovi
+  comandi fino al ritorno di dati validi.
 
-- Il segno della potenza di rete deve essere positivo in import e negativo in export.
-- Lo stato della wallbox deve usare `idle`, `waiting`, `pause` e `charging`.
-- I payload e i topic MQTT sono configurabili durante l'installazione.
-- Autorizzazione e revoca possono usare button Home Assistant oppure topic MQTT.
+## Installazione via HACS
 
-## Sensori ed entità da configurare
+1. Apri **HACS → Integrazioni**.
+2. Dal menu ⋮ scegli **Repository personalizzati**.
+3. Inserisci
+   `https://github.com/atcodrinky/ha-supersmart-ev-charging` e seleziona la
+   categoria **Integrazione**.
+4. Installa SuperSmart EV Charging e riavvia Home Assistant.
+5. Vai in **Impostazioni → Dispositivi e servizi → Aggiungi integrazione** e
+   cerca **SuperSmart EV Charging**.
 
-### Obbligatori
+## Configurazione guidata
+
+### Passaggio 1 — Parametri generali
+
+| Campo | Descrizione | Valore iniziale |
+|---|---|---|
+| Potenza contrattuale | Limite disponibile dell'abitazione | 5700 W |
+| Capacità utile batteria | Capacità realmente utilizzabile, modificabile nel tempo | 60 kWh |
+| Target SOC utente | Obiettivo usato dalla ricarica notturna | 50% |
+| Target SOC veicolo | Obiettivo usato da FV e Forza Ricarica | 80% |
+| Fascia off-peak | Abilita la logica della ricarica notturna | Attiva |
+| MQTT | Abilita il controllo della wallbox tramite MQTT | Attivo |
+| Telemetria energia MQTT | Pubblica i dati energetici sui topic configurati | Attiva |
+
+### Passaggio 2 — Entità Home Assistant
+
+#### Entità obbligatorie
 
 | Ruolo | Requisito | Esempio |
 |---|---|---|
-| SOC veicolo | percentuale numerica | `sensor.elroq_percentuale_batteria` |
+| SOC veicolo | Percentuale numerica | `sensor.elroq_percentuale_batteria` |
+| Potenza rete | W, positivo import e negativo export | `sensor.rete_power` |
+| Produzione FV | Potenza in W | `sensor.fotovoltaico_power` |
 | Stato wallbox | `idle`, `waiting`, `pause`, `charging` | `sensor.silla_prism_stato_wallbox` |
-| Potenza wallbox | W, il segno viene ignorato | `sensor.wallbox_potenza` |
-| Potenza rete | W; **positivo import**, **negativo export** | `sensor.rete_power` |
-| Produzione FV | W | `sensor.fotovoltaico_power` |
-| Fascia tariffaria | obbligatoria solo se F3 è abilitata | `sensor.pun_fascia_corrente` |
+| Potenza wallbox | Potenza in W; il segno viene ignorato | `sensor.wallbox_potenza` |
+| Fascia tariffaria | Necessaria solo se la fascia off-peak è attiva | `sensor.pun_fascia_corrente` |
 
-Se un ingresso critico è `unknown` o `unavailable`, il controller non invia
-nuovi comandi: è una protezione aggiuntiva rispetto ai template YAML.
+#### Entità opzionali
 
-### Opzionali
-
-| Ruolo | Comportamento se omesso |
+| Ruolo | Comportamento se non configurato |
 |---|---|
-| Connessione veicolo | derivata dallo stato wallbox: `idle` = scollegato |
-| Tensione wallbox | fallback 230 V, limitato internamente a 180–260 V |
-| Potenza istantanea totale | `potenza_rete + produzione_FV`, come il template esistente |
-| Limite di carica veicolo | nessuna sincronizzazione; resta il number interno |
-| Modo porta wallbox | usato solo per classificare le notifiche FV |
-| Button autorizza/revoca | fallback ai topic MQTT generici configurati |
-| Servizio notifiche | nessuna notifica; esempio `notify.mobile_app_famiglia` |
+| Veicolo collegato | Derivato dallo stato wallbox: `idle` indica scollegato |
+| Limite di carica veicolo | Il target interno resta utilizzabile, senza sincronizzazione con l'auto |
+| Potenza istantanea totale | Calcolata come potenza rete + produzione FV |
+| Tensione wallbox | Usa 230 V; i valori letti sono limitati internamente a 180–260 V |
+| Modalità/porta wallbox | Usata soltanto per migliorare la classificazione delle notifiche |
+| Button autorizza/revoca | Usa come fallback i topic MQTT configurati |
+| Servizio notifiche | Le notifiche non vengono inviate |
 
-## Helper da creare
+Se la fascia off-peak è attiva, seleziona anche il sensore tariffario e indica il
+valore che identifica la fascia economica, per esempio `F3`.
 
-Nessuno. L'integrazione crea le entità che sostituiscono gli helper:
+### Passaggio 3 — Comandi MQTT
 
-| Vecchio helper | Entità dell'integrazione |
+Il passaggio compare quando MQTT è abilitato.
+
+| Funzione | Valore predefinito |
 |---|---|
-| `input_boolean.ev_master_stop` | switch **Master Stop** |
-| `input_boolean.forza_ricarica` | switch **Forza Ricarica** |
-| `input_boolean.ev_solar_controller_active` | switch **Controller Solare Attivo** |
-| `input_number.limite_batteria_manuale` | number **Target SOC utente** |
-| `input_number.limite_batteria_auto` | number **Target SOC veicolo** |
-| `input_number.limite_import_permesso` | number **Import rete permesso** |
-| `input_number.limite_potenza_contratto_w` | number **Potenza contrattuale** |
-| `input_number.ev_limite_notturno_w` | number **Limite potenza notturna F3** |
-| `input_number.ev_capacita_batteria_kwh` | number **Capacità utile batteria** |
-| `input_number.wallbox_last_limit_sent` | stato interno |
-| `input_datetime.ev_last_auth_press` | timestamp interno |
-| `input_datetime.ev_last_revoke_press` | timestamp interno |
-| `input_select.ev_modalita_ricarica_corrente` | sensore **Modalità ricarica** |
+| Topic autorizza | `wallbox/command/authorize` |
+| Topic revoca | `wallbox/command/revoke` |
+| Topic limite corrente | `prism/1/command/set_current_limit` |
+| Topic modalità | `prism/1/command/set_mode` |
+| Payload Solare / Normale / Pausa | `1` / `2` / `3` |
+| Telemetria rete | `prism/energy_data/power_grid` |
+| Telemetria FV | `prism/energy_data/power_solar` |
+| Telemetria casa | `prism/energy_data/power_house` |
 
-## Installazione HACS
+Per Silla Prism è consigliato selezionare i button Home Assistant di
+autorizzazione e revoca. I relativi topic MQTT sono pensati come fallback o per
+wallbox differenti.
 
-1. Pubblicare questo repository su GitHub.
-2. In HACS aprire **Integrazioni → Repository personalizzati**.
-3. Inserire l'URL e scegliere **Integrazione**.
-4. Installare e riavviare Home Assistant.
-5. Disattivare le vecchie automazioni EV.
-6. In **Impostazioni → Dispositivi e servizi** aggiungere
-   **SuperSmart EV Charging**.
+## Cosa crea in Home Assistant
 
-Capacità batteria e flag di funzione si cambiano con **Configura**. La capacità
-utile si può regolare anche direttamente dall'entità number creata
-dall'integrazione, per adattarla a EV diversi o al degrado nel tempo. Potenza e
-target SOC si regolano dalle altre entità number.
-Per cambiare le entità sorgente, rimuovere e aggiungere di nuovo l'integrazione.
+L'integrazione appare nella scheda **Integrazioni** e crea un dispositivo
+SuperSmart EV Charging con tutte le entità collegate. Non è necessario creare
+manualmente helper `input_boolean`, `input_number`, `input_select` o
+`input_datetime`.
 
-## Configurazione Silla Prism
+I nomi visualizzati vengono tradotti nella lingua del backend Home Assistant al
+momento della prima creazione. Gli entity ID possono quindi variare: verifica
+quelli effettivi in **Impostazioni → Dispositivi e servizi → Entità**.
 
-| Funzione | Topic/payload predefinito |
+### Sensori
+
+| Sensore | Descrizione |
 |---|---|
-| Corrente | `prism/1/command/set_current_limit` |
-| Modalità | `prism/1/command/set_mode` |
-| Solare / normale / pausa | `1` / `2` / `3` |
-| Potenza rete | `prism/energy_data/power_grid` |
-| Potenza FV | `prism/energy_data/power_solar` |
-| Potenza istantanea | `prism/energy_data/power_house` |
+| Modalità ricarica | `idle`, `pv_surplus`, `night`, `force` o `master_stop` |
+| Surplus FV | Margine FV già corretto con l'offset import/export configurato |
+| Target SOC attivo | Target veicolo in FV/Forza, target utente nella ricarica notturna |
+| Tempo ricarica rimanente | Durata stimata alla potenza istantanea |
+| Fine ricarica stimata | Timestamp con fuso orario, formattato da Home Assistant |
+| Corrente target wallbox | Ultimo limite di corrente effettivamente inviato |
+| Corrente effettiva wallbox | Stima ottenuta da potenza wallbox e tensione |
 
-Per Prism è consigliato selezionare i button Home Assistant di autorizzazione
-e revoca. I topic authorize/revoke sono il fallback per altre wallbox.
+### Switch
 
-## Calcolo FV
+| Switch | Funzione |
+|---|---|
+| Master Stop | Blocca la ricarica e revoca l'autorizzazione |
+| Forza Ricarica | Carica fino al target SOC veicolo con bilanciamento contrattuale |
+| Controller Solare Attivo | Abilita o disabilita la gestione del surplus FV |
+| Ricarica Notturna F3 | Abilita o disabilita la modalità off-peak |
 
-Durante una ricarica il nuovo target non è il solo surplus di rete:
+### Number
 
-```text
-delta_A      = (-potenza_rete + import_permesso) / tensione
-corrente_ora = potenza_wallbox / tensione
-target_A     = corrente_ora + delta_A
-```
+| Number | Intervallo | Valore iniziale |
+|---|---:|---:|
+| Target SOC utente | 10–100% | 50% |
+| Target SOC veicolo | 20–100% | 80% |
+| Potenza contrattuale | 1500–22000 W | 5700 W |
+| Import rete permesso / offset FV | -500–+500 W | 200 W |
+| Limite potenza notturna | 1000–22000 W | 3000 W |
+| Capacità utile batteria | 1–250 kWh | 60 kWh |
 
-`import_permesso` può essere negativo: ad esempio `-200 W` imposta come punto
-neutro circa 200 W ceduti alla rete. Se l'esportazione diminuisce, il controller
-riduce la corrente della wallbox prima che inizi l'importazione.
+Il target utente non può superare il target veicolo. Un offset FV negativo
+richiede un margine di esportazione: per esempio `-200 W` mira a mantenere
+circa 200 W ceduti alla rete.
 
-Usando soltanto `delta_A`, una carica stabile vicino allo zero-scambio verrebbe
-erroneamente interpretata come priva di surplus.
-
-## Priorità
-
-```text
-veicolo scollegato → reset completo
-        ↓
-Master Stop → mode 3 + revoca
-        ↓
-SOC ≥ target veicolo → mode 3 + revoca
-        ↓
-FORZA → mode 2, target veicolo, bilanciamento contratto
-        ↓
-surplus FV → mode 1, target veicolo, isteresi 7 A / 5,5 A
-        ↓
-F3 + notte → mode 2, target utente, limite potenza notturna
-        ↓
-idle
-```
-
-Il controller reagisce ai cambi di stato e verifica comunque ogni 30 secondi.
-Le decisioni sono serializzate per evitare publish sovrapposti.
-
-## Entità create
-
-- Sensori: modalità, surplus FV, target SOC, tempo residuo, fine stimata,
-  corrente target e corrente effettiva wallbox.
-- Switch: Master Stop, Forza Ricarica, Controller Solare, Notte F3.
-- Number: target SOC utente/veicolo, capacità utile batteria, potenza
-  contrattuale, import permesso e limite potenza notturna.
-
-La stima usa `((target SOC - SOC) / 100 × capacità utile kWh) / potenza wallbox
-kW`. La potenza è quella istantanea e il rendimento di ricarica è assunto pari
-al 100%; sotto 100 W il tempo e la fine stimata non sono disponibili.
-
-Gli entity ID vengono assegnati da Home Assistant in base al nome del dispositivo
-e alla lingua. I nomi visualizzati sopra sono quindi descrittivi: verificare gli
-ID effettivi in **Impostazioni → Dispositivi e servizi → Entità**.
-
-## Esempio di card Lovelace
-
-Sostituire gli entity ID dell'esempio con quelli assegnati dalla propria istanza.
-
-```yaml
-type: entities
-title: SuperSmart EV Charging
-entities:
-  - entity: sensor.supersmart_ev_charging_charging_mode
-  - entity: sensor.supersmart_ev_charging_pv_surplus
-  - entity: sensor.supersmart_ev_charging_charging_time_remaining
-  - entity: sensor.supersmart_ev_charging_actual_wallbox_current
-  - entity: number.supersmart_ev_charging_user_soc_target
-  - entity: number.supersmart_ev_charging_vehicle_soc_target
-  - entity: number.supersmart_ev_charging_usable_battery_capacity
-  - entity: switch.supersmart_ev_charging_master_stop
-  - entity: switch.supersmart_ev_charging_force_charge
-  - entity: switch.supersmart_ev_charging_night_off_peak_charging
-  - entity: number.supersmart_ev_charging_allowed_grid_import_offset
-  - entity: number.supersmart_ev_charging_contract_power_limit
-```
-
-## Azioni
+### Azioni
 
 ```yaml
 action: supersmart_ev_charging.authorize_charging
@@ -222,55 +189,89 @@ data:
   current_a: 10
 ```
 
-## Verifica consigliata
+`current_a` accetta valori da 6 a 32 A.
 
-In **Strumenti per sviluppatori → Stati** controllare unità e segno della rete.
-Le automazioni originarie usano conversioni Jinja `float(0)`; l'integrazione
-applica conversioni equivalenti, ma blocca i comandi se un ingresso critico manca.
+## Schema del processo interno
 
-## Diagramma
+```text
+Cambio di stato o controllo periodico ogni 30 s
+                         │
+                         ▼
+             Lettura e validazione ingressi
+                         │
+              dati critici non validi
+                         └──────────────→ nessun nuovo comando
+                         │ validi
+                         ▼
+Veicolo scollegato / wallbox idle? ── sì ─→ reset completo
+                         │ no
+                         ▼
+Master Stop? ─────────────── sì ─→ Pausa + revoca autorizzazione
+                         │ no
+                         ▼
+SOC ≥ target veicolo? ────── sì ─→ Stop assoluto + revoca
+                         │ no
+                         ▼
+Forza Ricarica? ───────────── sì ─→ Normale + target veicolo
+                         │ no        + bilanciamento contratto
+                         ▼
+Surplus FV utilizzabile? ──── sì ─→ Solare + target veicolo
+                         │ no        + regolazione incrementale
+                         ▼
+Fascia off-peak + notte? ──── sì ─→ Normale + target utente
+                         │ no        + limite potenza notturna
+                         ▼
+                        IDLE
+```
+
+Le decisioni sono serializzate per evitare comandi MQTT sovrapposti.
+
+### Bilanciamento e calcolo FV
+
+In Forza Ricarica e di notte, la corrente disponibile deriva dalla potenza
+selezionata meno il consumo della casa:
+
+```text
+consumo_casa          = max(potenza_totale - potenza_wallbox, 0)
+corrente_disponibile = (limite_potenza - consumo_casa) / tensione
+```
+
+In modalità FV il controller corregge la corrente già erogata:
+
+```text
+delta_A      = (-potenza_rete + offset_import) / tensione
+corrente_ora = potenza_wallbox / tensione
+target_A     = corrente_ora + delta_A
+```
+
+La ricarica FV parte con almeno 7 A disponibili per 30 secondi e si arresta se
+il target scende sotto 5,5 A per 60 secondi. Il minimo operativo è 6 A; il
+massimo è 25 A in FV e 32 A in Forza/notte. Un nuovo limite viene inviato solo
+se varia di almeno 0,5 A.
+
+### Target SOC e stime
+
+- **Forza Ricarica e FV:** target SOC veicolo.
+- **Ricarica notturna:** target SOC utente.
+
+La stima del tempo usa:
+
+```text
+((target SOC - SOC attuale) / 100 × capacità utile kWh) / potenza wallbox kW
+```
+
+Il rendimento è assunto pari al 100%. Sotto 100 W, tempo rimanente e fine
+stimata non sono disponibili.
+
+Se viene configurata l'entità limite di carica dell'auto, una modifica fatta
+dall'integrazione viene inviata al veicolo dopo 3 secondi, così l'auto ha tempo
+di attivarsi. Una modifica proveniente dall'auto o dalla relativa app aggiorna
+invece immediatamente il target dell'integrazione.
+
+## Diagramma completo
 
 ![Diagramma del flusso SuperSmart EV Charging](assets/ev_energy_manager_flow.svg)
 
-## Struttura del repository
-
-```text
-custom_components/supersmart_ev_charging/
-├── __init__.py          # Setup, azioni ed eventi Home Assistant
-├── calculations.py     # Calcoli elettrici testabili
-├── coordinator.py      # Priorità, bilanciamento e comandi MQTT
-├── config_flow.py      # Configurazione guidata e opzioni
-├── const.py            # Costanti e valori predefiniti
-├── number.py           # Target SOC e limiti regolabili
-├── sensor.py           # Sensori diagnostici e stime
-├── switch.py           # Master Stop, FORZA, FV e F3
-├── services.yaml       # Descrizione delle azioni
-├── manifest.json       # Metadati Home Assistant/HACS
-├── strings.json        # Stringhe UI di base
-└── translations/
-    ├── it.json
-    └── en.json
-```
-
-## Migrazione dalle automazioni YAML
-
-1. Annotare i valori dei vecchi helper.
-2. Disattivare le vecchie automazioni EV prima di attivare l'integrazione.
-3. Installare e configurare SuperSmart EV Charging.
-4. Riportare target SOC, potenza contrattuale, import permesso e limite notturno
-   nelle nuove entità number.
-5. Eseguire un collaudo controllato.
-6. Disabilitare e, solo dopo il collaudo, eliminare i vecchi helper.
-
-Gli helper disabilitati restano nel registro di Home Assistant, ma non entrano in
-conflitto con le nuove entità perché usano domini diversi (`input_boolean` contro
-`switch`, `input_number` contro `number`).
-
-## Crediti
-
-Basato sul set di automazioni Home Assistant per la gestione energetica EV e
-sulla logica originale del progetto `ha-skoda-elroq-smart-charging`.
-
 ## Licenza
 
-MIT, vedere `LICENSE`.
+MIT License — vedi [LICENSE](LICENSE).
