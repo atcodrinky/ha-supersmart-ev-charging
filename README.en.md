@@ -2,15 +2,16 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-0.9.0--beta.2-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
+[![Version](https://img.shields.io/badge/version-0.9.0--beta.3-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
 
 [🇮🇹 Italiano](README.md) · 🇬🇧 English
 
 A HACS integration that replaces the original `EV - ...` automations for a
 Skoda Elroq/Enyaq and Silla Prism with one configurable charging controller.
 
-Version 0.9.0-beta.2 provides:
+Version 0.9.0-beta.3 provides:
 
+- classification as a Home Assistant service, with setup listed under Integrations;
 - priority order `Master Stop → absolute SOC → FORCE → PV surplus → night F3 → idle`;
 - incremental PV control with a 7 A/30 s start threshold and 5.5 A/60 s stop threshold;
 - dynamic load balancing and 0.5 A anti-spam: 25 A maximum for PV, 32 A for FORCE/night;
