@@ -1,22 +1,23 @@
 # SuperSmart EV Charging for Home Assistant
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.12%2B-blue.svg)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-1.4.0-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg)](https://www.home-assistant.io/)
+[![Version](https://img.shields.io/badge/version-0.9.0--beta.2-green.svg)](custom_components/supersmart_ev_charging/manifest.json)
 
 [🇮🇹 Italiano](README.md) · 🇬🇧 English
 
 A HACS integration that replaces the original `EV - ...` automations for a
 Skoda Elroq/Enyaq and Silla Prism with one configurable charging controller.
 
-Version v0.9.0-beta.1 provides:
+Version 0.9.0-beta.2 provides:
 
 - priority order `Master Stop → absolute SOC → FORCE → PV surplus → night F3 → idle`;
 - incremental PV control with a 7 A/30 s start threshold and 5.5 A/60 s stop threshold;
-- dynamic load balancing, 0.5 A anti-spam and a 6–25 A current range;
+- dynamic load balancing and 0.5 A anti-spam: 25 A maximum for PV, 32 A for FORCE/night;
 - soft stop with a second check after 20 seconds in FORCE and F3 modes;
 - intelligent exit from FORCE mode;
 - separate user and vehicle SOC targets with `user ≤ vehicle` protection;
+- correct active target: vehicle target for FORCE/PV, user target for night F3;
 - bidirectional synchronization with the vehicle charge-limit entity;
 - reset of Master Stop, FORCE and PV control when the vehicle is unplugged;
 - Silla Prism MQTT energy telemetry and optional notifications.

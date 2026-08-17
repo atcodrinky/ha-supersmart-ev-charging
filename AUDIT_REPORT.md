@@ -3,7 +3,7 @@
 ## Esito
 
 La versione ricevuta non era equivalente al set YAML e non era pronta per essere
-installata senza correzioni. La versione 1.4.0 contenuta in questo repository
+installata senza correzioni. La versione 0.9.0-beta.2 contenuta in questo repository
 corregge i difetti bloccanti e integra le funzioni mancanti.
 
 ## Difetti bloccanti corretti
@@ -27,6 +27,12 @@ corregge i difetti bloccanti e integra le funzioni mancanti.
    azione. È stato rimosso; la modalità resta un sensore diagnostico.
 10. **Helper interni non persistenti**: target e switch sarebbero tornati ai
     default dopo un riavvio. Ora sono salvati nello storage di Home Assistant.
+11. **Target SOC attivo errato in FV**: veniva scelto il target utente in tutte
+    le modalità tranne FORZA. Ora FORZA e surplus FV usano il target veicolo,
+    mentre la notte F3 usa il target utente.
+12. **Compatibilità di caricamento regredita**: il coordinator dipendeva da
+    un'API recente pur dichiarando una versione minima diversa. Il ripristino
+    dello stato è ora esplicito e compatibile da Home Assistant 2024.1.
 
 ## Parità implementata
 
@@ -35,7 +41,8 @@ corregge i difetti bloccanti e integra le funzioni mancanti.
   target veicolo e soft-stop 60 s + verifica 20 s.
 - FV in tutte le fasce, corrente incrementale, isteresi temporale reale 30/60 s,
   limite 25 A e anti-spam 0,5 A.
-- F3 sotto orizzonte con target utente, limite notturno e priorità al FV.
+- F3 sotto orizzonte con target utente: avvio sul limite contrattuale e
+  modulazione sul limite notturno, come nelle YAML.
 - Stop SOC assoluto e stop SOC utente in F3 senza FV.
 - Igiene controller FV.
 - Uscita intelligente da FORZA.
@@ -49,12 +56,10 @@ corregge i difetti bloccanti e integra le funzioni mancanti.
 Le sorgenti non sono perfettamente concordi. Sono state privilegiate la tabella
 `Logica.xlsx`, le descrizioni delle automazioni e le priorità dei diagrammi:
 
-- In uscita da FORZA, se sono disponibili sia F3 sia FV, viene scelto il FV.
-  Nel file YAML il ramo `continua_notturna` precede `continua_fv`, mentre il foglio
-  di debug assegna correttamente la priorità al controller FV.
-- In F3 il soft-stop usa il limite di potenza notturno. Nel template trigger YAML
-  compare invece il limite contrattuale, nonostante la modulazione e l'helper
-  dedicato usino il limite notturno.
+- In uscita da FORZA viene rispettato l'ordine del `choose` YAML: se sono
+  disponibili sia F3 sia FV, prosegue la modalità notturna.
+- In F3 la modulazione usa il limite notturno; il trigger e la seconda verifica
+  del soft-stop conservano invece il limite contrattuale previsto dalle YAML.
 - Attivare FORZA durante una carica FV forza esplicitamente mode 2. Il solo YAML
   poteva restare bloccato perché richiedeva contemporaneamente FORZA attiva e
   controller FV spento.
@@ -67,8 +72,8 @@ Le sorgenti non sono perfettamente concordi. Sono state privilegiate la tabella
 - compilazione sintattica di tutti i moduli Python;
 - validazione JSON di manifest, stringhe e traduzioni;
 - validazione YAML di `services.yaml`;
-- cinque test di regressione sui calcoli FV, soglia 5,5 A, soglia 7 A,
-  bilanciamento carichi e clamp tensione;
+- sette test di regressione sui calcoli FV, target SOC attivo, soglie 5,5/7 A,
+  bilanciamento carichi fino a 32 A e clamp tensione;
 - controllo struttura repository HACS.
 
 ## Riferimenti tecnici

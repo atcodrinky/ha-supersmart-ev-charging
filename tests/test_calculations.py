@@ -34,10 +34,27 @@ class CalculationTests(unittest.TestCase):
         current = calculations.balanced_current(5700, 5000, 1380, 230, 25)
         self.assertEqual(current, 9.0)
 
+    def test_force_and_night_balancing_can_reach_32_amp(self) -> None:
+        current = calculations.balanced_current(22000, 1000, 0, 230, 32)
+        self.assertEqual(current, 32.0)
+
     def test_voltage_fallback_and_clamp(self) -> None:
         self.assertEqual(calculations.clamp_voltage(0), 230)
         self.assertEqual(calculations.clamp_voltage(120), 180)
         self.assertEqual(calculations.clamp_voltage(280), 260)
+
+    def test_active_soc_target_matches_each_charging_mode(self) -> None:
+        args = {"force_charge": False, "solar_controller_active": False,
+                "user_target": 50, "vehicle_target": 80}
+        self.assertEqual(calculations.active_soc_target("night", **args), 50)
+        self.assertEqual(calculations.active_soc_target("pv_surplus", **args), 80)
+        self.assertEqual(calculations.active_soc_target("force", **args), 80)
+        self.assertEqual(
+            calculations.active_soc_target(
+                "idle", False, True, args["user_target"], args["vehicle_target"]
+            ),
+            80,
+        )
 
 
 if __name__ == "__main__":
