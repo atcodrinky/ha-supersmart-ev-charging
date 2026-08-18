@@ -1,259 +1,66 @@
-<svg width="100%" viewBox="0 0 680 1420" xmlns="http://www.w3.org/2000/svg" role="img">
-<title>Home Assistant EV Energy Manager – complete automation flow</title>
-<desc>Flow diagram of charging priorities: Master Stop, Force Charge, Night F3, PV Surplus, Idle. Includes sections on load balancing, SOC targets, safety checks, and configurable entities.</desc>
-<defs>
-  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  </marker>
-  <style>
-    text { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;  }
-    .th  { font-size: 14px; font-weight: 500; }
-    .ts  { font-size: 12px; font-weight: 400; }
-    .arr { stroke: #888; stroke-width: 1.2;  }
-    .leader { stroke: #aaa; stroke-width: 0.5; stroke-dasharray: 3 3;  }
-      .ts    {  }
-      .arr   { stroke: #666; }
-      .leader { stroke: #555; }
-    }
-  </style>
-</defs>
-<rect width="680" height="1420" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">SuperSmart EV Charging — operating flow</title>
+  <desc id="desc">Updated smart EV charging diagram: inputs, safeguards, Force, PV and off-peak priorities, dynamic balancing and wallbox commands.</desc>
+  <defs>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#121A35"/><stop offset="1" stop-color="#243A69"/></linearGradient>
+    <linearGradient id="controller" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E8F2FF"/><stop offset="1" stop-color="#F5F9FF"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#17213A" flood-opacity=".12"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1 1l7 4-7 4" fill="none" stroke="#52627A" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1 1l7 4-7 4" fill="none" stroke="#16835C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
+    <style>
+      text{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}.title{font-size:34px;font-weight:700;fill:#fff}.subtitle{font-size:17px;font-weight:400;fill:#DCE8FF}.section{font-size:14px;font-weight:700;letter-spacing:1.5px;fill:#52627A}.head{font-size:18px;font-weight:700;fill:#17213A}.body{font-size:14px;font-weight:500;fill:#33415C}.small{font-size:12px;font-weight:500;fill:#607089}.arrow{fill:none;stroke:#52627A;stroke-width:2;marker-end:url(#arrow)}.arrow-green{fill:none;stroke:#16835C;stroke-width:2.4;marker-end:url(#arrowGreen)}.dashed{stroke-dasharray:6 6}
+    </style>
+  </defs>
+  <rect width="1600" height="1000" fill="#F5F7FB"/><rect width="1600" height="104" fill="url(#header)"/>
+  <circle cx="61" cy="52" r="29" fill="#2F72FF"/><path d="M39 57h43l8 9h12" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><circle cx="51" cy="69" r="6" fill="#fff"/><circle cx="78" cy="69" r="6" fill="#fff"/><path d="M66 27v17h-9l13 17V44h9z" fill="#FFD21C"/>
+  <text class="title" x="112" y="47">SuperSmart EV Charging</text>
+  <text class="subtitle" x="112" y="76">Chooses how to charge using solar, off-peak tariff and available power — safely.</text>
+  <rect x="1340" y="28" width="202" height="48" rx="24" fill="#FFFFFF" fill-opacity=".12" stroke="#FFFFFF" stroke-opacity=".25"/><text x="1441" y="52" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="700" fill="#fff">HOME ASSISTANT + MQTT</text>
 
-<!-- ════════════════ START ════════════════ -->
-<rect x="215" y="20" width="250" height="44" rx="22" fill="#5DCAA5" stroke="#0F6E56" stroke-width="0.5"/>
-<text class="th" x="340" y="42" text-anchor="middle" dominant-baseline="central" fill="#085041">Vehicle connected</text>
+  <text class="section" x="50" y="132">1 · WHAT IT WATCHES</text>
+  <g filter="url(#shadow)">
+    <rect x="50" y="146" width="225" height="86" rx="16" fill="#fff"/><circle cx="84" cy="181" r="20" fill="#E8F2FF"/><text x="84" y="182" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="800" fill="#2563C9">EV</text><text class="head" x="116" y="177">Vehicle</text><text class="small" x="116" y="200">SOC · connection · targets</text>
+    <rect x="305" y="146" width="225" height="86" rx="16" fill="#fff"/><circle cx="339" cy="181" r="20" fill="#EAF8F1"/><text x="339" y="182" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="800" fill="#16835C">PV</text><text class="head" x="371" y="177">Energy</text><text class="small" x="371" y="200">grid ± W · PV production</text>
+    <rect x="560" y="146" width="225" height="86" rx="16" fill="#fff"/><circle cx="594" cy="181" r="20" fill="#FFF4DC"/><text x="594" y="182" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="800" fill="#B66A00">WB</text><text class="head" x="626" y="177">Wallbox</text><text class="small" x="626" y="200">state · power · voltage</text>
+    <rect x="815" y="146" width="225" height="86" rx="16" fill="#fff"/><circle cx="849" cy="181" r="20" fill="#F0EAFF"/><text x="849" y="182" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="800" fill="#6941C6">F3</text><text class="head" x="881" y="177">Context</text><text class="small" x="881" y="200">tariff · sun above/below</text>
+    <rect x="1070" y="146" width="225" height="86" rx="16" fill="#fff"/><circle cx="1104" cy="181" r="20" fill="#FFE8E8"/><text x="1104" y="182" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="800" fill="#B42318">!</text><text class="head" x="1136" y="177">User controls</text><text class="small" x="1136" y="200">Master Stop · Force · off-peak</text>
+    <rect x="1325" y="146" width="225" height="86" rx="16" fill="#fff"/><circle cx="1359" cy="181" r="20" fill="#E9EEF6"/><text x="1359" y="182" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="800" fill="#52627A">W</text><text class="head" x="1391" y="177">Thresholds</text><text class="small" x="1391" y="200">total · off-peak · PV offset</text>
+  </g>
 
-<line x1="340" y1="64" x2="340" y2="100" class="arr" marker-end="url(#arrow)"/>
+  <text class="section" x="50" y="274">2 · HOW IT DECIDES</text>
+  <g filter="url(#shadow)">
+    <rect x="50" y="292" width="190" height="88" rx="18" fill="#EAF8F1" stroke="#8DD4B6"/><circle cx="83" cy="326" r="18" fill="#16835C"/><path d="M75 326l6 6 11-13" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text class="head" x="111" y="323">EV connected</text><text class="small" x="111" y="347">wallbox ready</text>
+    <rect x="286" y="292" width="200" height="88" rx="18" fill="#fff" stroke="#C7D1E0"/><text class="head" x="386" y="322" text-anchor="middle">Valid data?</text><text class="small" x="386" y="348" text-anchor="middle">SOC and power available</text>
+    <rect x="532" y="292" width="236" height="88" rx="18" fill="#FFF7E8" stroke="#F3C979"/><text class="head" x="650" y="318" text-anchor="middle">Safety gate</text><text class="small" x="650" y="341" text-anchor="middle">Master Stop · SOC reached</text><text class="small" x="650" y="360" text-anchor="middle">unplugged → reset</text>
+    <rect x="814" y="292" width="246" height="88" rx="18" fill="#E8F2FF" stroke="#90B9F4"/><text class="head" x="937" y="316" text-anchor="middle">Priority selector</text><text class="small" x="937" y="340" text-anchor="middle">1 Force · 2 PV · 3 off-peak</text><text class="small" x="937" y="359" text-anchor="middle">otherwise wait</text>
+    <rect x="1106" y="292" width="204" height="88" rx="18" fill="#F0F2F6" stroke="#C7D1E0"/><text class="head" x="1208" y="322" text-anchor="middle">IDLE</text><text class="small" x="1208" y="348" text-anchor="middle">waits for useful conditions</text>
+    <rect x="1356" y="292" width="194" height="88" rx="18" fill="#FFE8E8" stroke="#EEA3A3"/><text class="head" x="1453" y="320" text-anchor="middle" fill="#9F1C16">SAFE STOP</text><text class="small" x="1453" y="344" text-anchor="middle">pause + revoke</text><text class="small" x="1453" y="362" text-anchor="middle">authorization</text>
+  </g>
+  <path class="arrow-green" d="M240 336H286"/><path class="arrow" d="M486 336H532"/><path class="arrow" d="M768 336H814"/><path class="arrow" d="M1060 336H1106"/><path class="arrow" d="M650 292V270H1453V292"/>
+  <text class="small" x="348" y="399" text-anchor="middle">NO → no new command</text><path class="arrow dashed" d="M386 380V415H244"/>
 
-<!-- ════════════════ DECISION 1: MASTER STOP ════════════════ -->
-<rect x="210" y="100" width="260" height="52" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
-<text class="th" x="340" y="120" text-anchor="middle" dominant-baseline="central" fill="#0C447C">Master Stop active?</text>
-<text class="ts" x="340" y="140" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">absolute priority</text>
+  <text class="section" x="50" y="454">3 · SELECTED MODE</text>
+  <g filter="url(#shadow)">
+    <rect x="120" y="476" width="380" height="152" rx="22" fill="#FFF3DB" stroke="#F0BA55"/><circle cx="163" cy="518" r="25" fill="#F59E0B"/><path d="M166 494l-19 28h16l-6 24 24-34h-17z" fill="#fff"/><text class="head" x="201" y="508">FORCE CHARGE</text><text class="body" x="201" y="533">Vehicle SOC target · Normal mode</text><line x1="151" y1="559" x2="469" y2="559" stroke="#E9BE71"/><text class="small" x="151" y="584">Uses the total operating power limit</text><text class="small" x="151" y="606">while protecting household loads.</text>
+    <rect x="610" y="476" width="380" height="152" rx="22" fill="#EAF8F1" stroke="#78CDA8"/><circle cx="653" cy="518" r="25" fill="#16A36D"/><circle cx="653" cy="518" r="9" fill="#fff"/><g stroke="#fff" stroke-width="2.5"><path d="M653 499v-7M653 544v-7M634 518h-7M679 518h-7M640 505l-5-5M671 536l-5-5M666 505l5-5M635 536l5-5"/></g><text class="head" x="691" y="508">PV SURPLUS</text><text class="body" x="691" y="533">Vehicle SOC target · Solar mode</text><line x1="641" y1="559" x2="959" y2="559" stroke="#8AD0B1"/><text class="small" x="641" y="584">Tracks export/import and PV offset;</text><text class="small" x="641" y="606">start and stop use anti-bounce hysteresis.</text>
+    <rect x="1100" y="476" width="380" height="152" rx="22" fill="#F1ECFF" stroke="#BCA6F2"/><circle cx="1143" cy="518" r="25" fill="#7457D5"/><path d="M1149 497a21 21 0 1 0 14 34 24 24 0 0 1-14-34z" fill="#fff"/><text class="head" x="1181" y="508">NIGHT / OFF-PEAK</text><text class="body" x="1181" y="533">User SOC target · Normal mode</text><line x1="1131" y1="559" x2="1449" y2="559" stroke="#C7B6F1"/><text class="small" x="1131" y="584">Requires configured tariff + sun below;</text><text class="small" x="1131" y="606">uses the off-peak total operating limit.</text>
+  </g>
+  <path class="arrow" d="M937 380V430H310V476"/><path class="arrow" d="M937 380V476"/><path class="arrow" d="M937 430H1290V476"/>
 
-<!-- YES left -->
-<line x1="210" y1="126" x2="150" y2="126" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="180" y="115" text-anchor="middle" fill="#1a1a1a">yes</text>
+  <g filter="url(#shadow)">
+    <rect x="360" y="680" width="880" height="92" rx="22" fill="url(#controller)" stroke="#90B9F4"/><circle cx="410" cy="726" r="27" fill="#2F72FF"/><path d="M398 730h24M410 718v24M397 714l6 6M423 714l-6 6" stroke="#fff" stroke-width="3" stroke-linecap="round"/><text class="head" x="452" y="714">DYNAMIC CURRENT BALANCING</text><text class="body" x="452" y="741">Converts power margin into amps · 6 A minimum · sends changes ≥ 0.5 A only</text><rect x="1030" y="704" width="174" height="44" rx="22" fill="#2F72FF"/><text x="1117" y="726" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="700" fill="#fff">WALLBOX A TARGET</text>
+  </g>
+  <path class="arrow-green" d="M310 628V654H610V680"/><path class="arrow-green" d="M800 628V680"/><path class="arrow-green" d="M1290 628V654H990V680"/>
 
-<!-- MASTER STOP block -->
-<rect x="20" y="100" width="130" height="80" rx="8" fill="#F7C1C1" stroke="#A32D2D" stroke-width="0.5"/>
-<text class="th" x="85" y="124" text-anchor="middle" dominant-baseline="central" fill="#791F1F">Master Stop</text>
-<text class="ts" x="85" y="146" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">Set mode 3 (pause)</text>
-<text class="ts" x="85" y="164" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">Revoke authorization</text>
+  <g filter="url(#shadow)">
+    <rect x="420" y="812" width="220" height="62" rx="16" fill="#fff" stroke="#C7D1E0"/><text class="head" x="530" y="838" text-anchor="middle">MQTT / HA buttons</text><text class="small" x="530" y="858" text-anchor="middle">mode · amps · authorization</text>
+    <rect x="690" y="812" width="220" height="62" rx="16" fill="#17213A"/><text x="800" y="839" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">WALLBOX</text><text x="800" y="859" text-anchor="middle" font-size="12" font-weight="500" fill="#C8D5EE">delivers and measures</text>
+    <rect x="960" y="812" width="220" height="62" rx="16" fill="#EAF8F1" stroke="#78CDA8"/><text class="head" x="1070" y="838" text-anchor="middle">EV CHARGING</text><text class="small" x="1070" y="858" text-anchor="middle">until the active target</text>
+  </g>
+  <path class="arrow" d="M800 772V792H530V812"/><path class="arrow-green" d="M640 843H690"/><path class="arrow-green" d="M910 843H960"/>
 
-<line x1="85" y1="180" x2="85" y2="208" class="arr" marker-end="url(#arrow)"/>
-<rect x="20" y="208" width="130" height="34" rx="6" fill="#D3D1C7" stroke="#888780" stroke-width="0.5"/>
-<text class="ts" x="85" y="225" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">Charging blocked</text>
-
-<!-- NO down -->
-<line x1="340" y1="152" x2="340" y2="188" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="350" y="170" text-anchor="middle" fill="#1a1a1a">no</text>
-
-<!-- ════════════════ DECISION 2: FORZA ════════════════ -->
-<rect x="210" y="188" width="260" height="52" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
-<text class="th" x="340" y="208" text-anchor="middle" dominant-baseline="central" fill="#0C447C">Force Charge active?</text>
-<text class="ts" x="340" y="228" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">ignores tariffs and PV</text>
-
-<!-- YES right -->
-<line x1="470" y1="214" x2="570" y2="214" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="520" y="204" text-anchor="middle" fill="#1a1a1a">yes</text>
-
-<!-- FORZA block -->
-<rect x="570" y="188" width="96" height="80" rx="8" fill="#FAC775" stroke="#BA7517" stroke-width="0.5"/>
-<text class="th" x="618" y="212" text-anchor="middle" dominant-baseline="central" fill="#633806">Force</text>
-<text class="ts" x="618" y="230" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">Mode Normal</text>
-<text class="ts" x="618" y="248" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">≤ contract limit</text>
-
-<line x1="618" y1="268" x2="618" y2="296" class="arr" marker-end="url(#arrow)"/>
-<rect x="570" y="296" width="96" height="52" rx="6" fill="#D3D1C7" stroke="#888780" stroke-width="0.5"/>
-<text class="th" x="618" y="311" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">STOP</text>
-<text class="ts" x="618" y="327" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">vehicle target</text>
-<text class="ts" x="618" y="341" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">reached</text>
-<path d="M618 348 L618 360 L480 360" fill="none" stroke="#aaa" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
-
-<!-- NO down -->
-<line x1="340" y1="240" x2="340" y2="276" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="350" y="258" text-anchor="middle" fill="#1a1a1a">no</text>
-
-<!-- ════════════════ DECISION 3: NIGHT F3 ════════════════ -->
-<rect x="200" y="276" width="280" height="52" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
-<text class="th" x="340" y="296" text-anchor="middle" dominant-baseline="central" fill="#0C447C">F3 tariff + night?</text>
-<text class="ts" x="340" y="316" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">sun below + force OFF + SOC &lt; user target</text>
-
-<!-- YES right connector -->
-<path d="M480 302 L618 302 L618 370" fill="none" stroke="#888" stroke-width="1.2" marker-end="url(#arrow)"/>
-<text class="ts" x="549" y="292" text-anchor="middle" fill="#1a1a1a">yes</text>
-
-<!-- NIGHT block -->
-<rect x="570" y="370" width="96" height="80" rx="8" fill="#CECBF6" stroke="#534AB7" stroke-width="0.5"/>
-<text class="th" x="618" y="394" text-anchor="middle" dominant-baseline="central" fill="#26215C">Night F3</text>
-<text class="ts" x="618" y="412" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">Mode Normal</text>
-<text class="ts" x="618" y="430" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">≤ night limit</text>
-
-<line x1="618" y1="450" x2="618" y2="478" class="arr" marker-end="url(#arrow)"/>
-<rect x="570" y="478" width="96" height="48" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
-<text class="th" x="618" y="497" text-anchor="middle" dominant-baseline="central" fill="#0C447C">SOC ≥</text>
-<text class="th" x="618" y="515" text-anchor="middle" dominant-baseline="central" fill="#0C447C">user target?</text>
-
-<path d="M570 502 L540 502 L540 410 L570 410" fill="none" stroke="#aaa" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
-<text class="ts" x="555" y="498" text-anchor="middle" fill="#1a1a1a">no</text>
-
-<line x1="618" y1="526" x2="618" y2="556" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="628" y="541" text-anchor="middle" fill="#1a1a1a">yes</text>
-<rect x="570" y="556" width="96" height="52" rx="6" fill="#D3D1C7" stroke="#888780" stroke-width="0.5"/>
-<text class="th" x="618" y="571" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">STOP</text>
-<text class="ts" x="618" y="587" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">user target</text>
-<text class="ts" x="618" y="601" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">reached</text>
-
-<!-- NO down -->
-<line x1="340" y1="328" x2="340" y2="364" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="350" y="346" text-anchor="middle" fill="#1a1a1a">no</text>
-
-<!-- ════════════════ DECISION 4: SURPLUS FV ════════════════ -->
-<rect x="190" y="364" width="300" height="52" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
-<text class="th" x="340" y="384" text-anchor="middle" dominant-baseline="central" fill="#0C447C">PV Surplus available?</text>
-<text class="ts" x="340" y="404" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">amp ≥ 7A for 30s + SOC &lt; vehicle target</text>
-
-<!-- YES left -->
-<line x1="190" y1="390" x2="110" y2="390" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="150" y="379" text-anchor="middle" fill="#1a1a1a">yes</text>
-
-<!-- SURPLUS FV block -->
-<rect x="20" y="364" width="90" height="80" rx="8" fill="#5DCAA5" stroke="#0F6E56" stroke-width="0.5"/>
-<text class="th" x="65" y="388" text-anchor="middle" dominant-baseline="central" fill="#04342C">PV Surplus</text>
-<text class="ts" x="65" y="406" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">Mode Solar</text>
-<text class="ts" x="65" y="424" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">modulate amp</text>
-
-<line x1="65" y1="444" x2="65" y2="472" class="arr" marker-end="url(#arrow)"/>
-<rect x="20" y="472" width="90" height="48" rx="8" fill="#B5D4F4" stroke="#185FA5" stroke-width="0.5"/>
-<text class="th" x="65" y="491" text-anchor="middle" dominant-baseline="central" fill="#0C447C">amp &lt; 5.5A</text>
-<text class="th" x="65" y="509" text-anchor="middle" dominant-baseline="central" fill="#0C447C">for 60s?</text>
-
-<path d="M110 496 L140 496 L140 404 L110 404" fill="none" stroke="#aaa" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
-<text class="ts" x="125" y="490" text-anchor="middle" fill="#1a1a1a">no</text>
-
-<line x1="65" y1="520" x2="65" y2="552" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="75" y="534" text-anchor="middle" fill="#1a1a1a">yes</text>
-<rect x="20" y="552" width="90" height="52" rx="6" fill="#D3D1C7" stroke="#888780" stroke-width="0.5"/>
-<text class="th" x="65" y="567" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">STOP</text>
-<text class="ts" x="65" y="583" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">vehicle target</text>
-<text class="ts" x="65" y="597" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">reached</text>
-
-<!-- NO → IDLE -->
-<line x1="340" y1="416" x2="340" y2="452" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="350" y="434" text-anchor="middle" fill="#1a1a1a">no</text>
-
-<!-- IDLE -->
-<rect x="220" y="452" width="240" height="44" rx="22" fill="#D3D1C7" stroke="#888780" stroke-width="0.5"/>
-<text class="th" x="340" y="474" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">Idle – waiting</text>
-
-<!-- ════════════════ SEZIONE BILANCIAMENTO ════════════════ -->
-<line x1="40" y1="615" x2="640" y2="615" stroke="#ccc" stroke-width="0.5" stroke-dasharray="4 3"/>
-<text class="th" x="340" y="638" text-anchor="middle" fill="#1a1a1a">Dynamic load balancing</text>
-<text class="ts" x="340" y="656" text-anchor="middle" fill="#1a1a1a">active while charging</text>
-
-<rect x="20"  y="670" width="148" height="138" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
-<text class="th" x="94"  y="693" text-anchor="middle" dominant-baseline="central" fill="#04342C">Input sensors</text>
-<text class="ts" x="94"  y="712" text-anchor="middle" fill="#1a1a1a">PV production (W)</text>
-<text class="ts" x="94"  y="730" text-anchor="middle" fill="#1a1a1a">Grid import/export (W)</text>
-<text class="ts" x="94"  y="748" text-anchor="middle" fill="#1a1a1a">Wallbox power (W)</text>
-<text class="ts" x="94"  y="766" text-anchor="middle" fill="#1a1a1a">Voltage (V)</text>
-<text class="ts" x="94"  y="784" text-anchor="middle" fill="#1a1a1a">Contract limit (W)</text>
-
-<line x1="168" y1="739" x2="196" y2="739" class="arr" marker-end="url(#arrow)"/>
-
-<rect x="196" y="670" width="130" height="138" rx="8" fill="#CECBF6" stroke="#534AB7" stroke-width="0.5"/>
-<text class="th" x="261" y="693" text-anchor="middle" dominant-baseline="central" fill="#26215C">PV Surplus</text>
-<text class="ts" x="261" y="716" text-anchor="middle" fill="#1a1a1a">amp_fv =</text>
-<text class="ts" x="261" y="734" text-anchor="middle" fill="#1a1a1a">(-grid + offset)</text>
-<text class="ts" x="261" y="752" text-anchor="middle" fill="#1a1a1a">÷ voltage</text>
-<text class="ts" x="261" y="774" text-anchor="middle" fill="#1a1a1a">min 6A</text>
-
-<line x1="326" y1="739" x2="354" y2="739" class="arr" marker-end="url(#arrow)"/>
-
-<rect x="354" y="670" width="148" height="138" rx="8" fill="#FAC775" stroke="#BA7517" stroke-width="0.5"/>
-<text class="th" x="428" y="693" text-anchor="middle" dominant-baseline="central" fill="#412402">Load balance</text>
-<text class="ts" x="428" y="712" text-anchor="middle" fill="#1a1a1a">total = grid + PV</text>
-<text class="ts" x="428" y="730" text-anchor="middle" fill="#1a1a1a">house = total - wallbox</text>
-<text class="ts" x="428" y="750" text-anchor="middle" fill="#1a1a1a">margin =</text>
-<text class="ts" x="428" y="768" text-anchor="middle" fill="#1a1a1a">limit - house</text>
-<text class="ts" x="428" y="786" text-anchor="middle" fill="#1a1a1a">amp = margin ÷ V</text>
-
-<line x1="502" y1="739" x2="520" y2="739" class="arr" marker-end="url(#arrow)"/>
-
-<rect x="520" y="670" width="140" height="138" rx="8" fill="#F5C4B3" stroke="#993C1D" stroke-width="0.5"/>
-<text class="th" x="590" y="693" text-anchor="middle" dominant-baseline="central" fill="#4A1B0C">Ampere → WB</text>
-<text class="ts" x="590" y="712" text-anchor="middle" fill="#1a1a1a">min(amp_fv,</text>
-<text class="ts" x="590" y="730" text-anchor="middle" fill="#1a1a1a">amp_contract)</text>
-<text class="ts" x="590" y="750" text-anchor="middle" fill="#1a1a1a">clamped 6–25A</text>
-<text class="ts" x="590" y="770" text-anchor="middle" fill="#1a1a1a">Δ ≥ 0.5A before</text>
-<text class="ts" x="590" y="788" text-anchor="middle" fill="#1a1a1a">sending</text>
-
-<!-- ════════════════ TARGET SOC ════════════════ -->
-<line x1="40" y1="830" x2="640" y2="830" stroke="#ccc" stroke-width="0.5" stroke-dasharray="4 3"/>
-<text class="th" x="340" y="858" text-anchor="middle" fill="#1a1a1a">SOC Target</text>
-
-<rect x="20"  y="872" width="294" height="58" rx="8" fill="#FAC775" stroke="#BA7517" stroke-width="0.5"/>
-<text class="th" x="167" y="893" text-anchor="middle" dominant-baseline="central" fill="#412402">User target</text>
-<text class="ts" x="167" y="913" text-anchor="middle" fill="#1a1a1a">charge_limit_manual → Night F3 charging</text>
-
-<rect x="330" y="872" width="330" height="58" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
-<text class="th" x="495" y="893" text-anchor="middle" dominant-baseline="central" fill="#04342C">Vehicle target</text>
-<text class="ts" x="495" y="913" text-anchor="middle" fill="#1a1a1a">limite_batteria_auto → PV Surplus e Force</text>
-
-<!-- ════════════════ MODE PRIORITY ════════════════ -->
-<line x1="40" y1="952" x2="640" y2="952" stroke="#ccc" stroke-width="0.5" stroke-dasharray="4 3"/>
-<text class="th" x="340" y="978" text-anchor="middle" fill="#1a1a1a">Mode priority</text>
-
-<rect x="74"  y="993" width="120" height="34" rx="6" fill="#F7C1C1" stroke="#A32D2D" stroke-width="0.5"/>
-<text class="th" x="134" y="1010" text-anchor="middle" dominant-baseline="central" fill="#791F1F">1. Master Stop</text>
-<rect x="208" y="993" width="90"  height="34" rx="6" fill="#FAC775" stroke="#BA7517" stroke-width="0.5"/>
-<text class="th" x="253" y="1010" text-anchor="middle" dominant-baseline="central" fill="#633806">2. Force</text>
-<rect x="312" y="993" width="96"  height="34" rx="6" fill="#CECBF6" stroke="#534AB7" stroke-width="0.5"/>
-<text class="th" x="360" y="1010" text-anchor="middle" dominant-baseline="central" fill="#26215C">3. Night F3</text>
-<rect x="422" y="993" width="110" height="34" rx="6" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
-<text class="th" x="477" y="1010" text-anchor="middle" dominant-baseline="central" fill="#04342C">4. PV Surplus</text>
-<rect x="546" y="993" width="60"  height="34" rx="6" fill="#D3D1C7" stroke="#888780" stroke-width="0.5"/>
-<text class="th" x="576" y="1010" text-anchor="middle" dominant-baseline="central" fill="#1a1a1a">5. Idle</text>
-
-<!-- ════════════════ SAFETY + ENTITIES ════════════════ -->
-<line x1="40" y1="1048" x2="640" y2="1048" stroke="#ccc" stroke-width="0.5" stroke-dasharray="4 3"/>
-
-<text class="th" x="170" y="1074" text-anchor="middle" fill="#1a1a1a">Safety checks</text>
-<text class="th" x="500" y="1074" text-anchor="middle" fill="#1a1a1a">Configurable entities</text>
-
-<rect x="20"  y="1088" width="300" height="128" rx="8" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.5"/>
-<text class="ts" x="38" y="1114" fill="#1a1a1a">✓  Respects contract power limit</text>
-<text class="ts" x="38" y="1134" fill="#1a1a1a">✓  Configurable grid import offset (W)</text>
-<text class="ts" x="38" y="1154" fill="#1a1a1a">✓  Automatic stop at SOC target</text>
-<text class="ts" x="38" y="1174" fill="#1a1a1a">✓  Immediate revoke with Master Stop</text>
-<text class="ts" x="38" y="1194" fill="#1a1a1a">✓  Minimum current 6A · maximum 25A</text>
-
-<rect x="340" y="1088" width="300" height="128" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
-<text class="ts" x="358" y="1114" fill="#1a1a1a">number: user / vehicle SOC target</text>
-<text class="ts" x="358" y="1134" fill="#1a1a1a">number: contract power limit (W)</text>
-<text class="ts" x="358" y="1154" fill="#1a1a1a">number: night power limit (W)</text>
-<text class="ts" x="358" y="1174" fill="#1a1a1a">number: allowed grid import (offset W)</text>
-<text class="ts" x="358" y="1194" fill="#1a1a1a">switch: master stop / force / night</text>
-
-<!-- ════════════════ LEGENDA + VERSIONE ════════════════ -->
-<line x1="40" y1="1238" x2="640" y2="1238" stroke="#ccc" stroke-width="0.5" stroke-dasharray="4 3"/>
-
-<text class="ts" x="340" y="1262" text-anchor="middle" fill="#1a1a1a">Colour legend</text>
-
-<rect x="68"  y="1278" width="14" height="14" rx="3" fill="#5DCAA5"/>
-<text class="ts" x="88" y="1285" dominant-baseline="central" fill="#1a1a1a">State / start / stop</text>
-<rect x="234" y="1278" width="14" height="14" rx="3" fill="#85B7EB"/>
-<text class="ts" x="254" y="1285" dominant-baseline="central" fill="#1a1a1a">Decision</text>
-<rect x="335" y="1278" width="14" height="14" rx="3" fill="#EF9F27"/>
-<text class="ts" x="355" y="1285" dominant-baseline="central" fill="#1a1a1a">Force</text>
-<rect x="406" y="1278" width="14" height="14" rx="3" fill="#AFA9EC"/>
-<text class="ts" x="426" y="1285" dominant-baseline="central" fill="#1a1a1a">Night F3</text>
-<rect x="497" y="1278" width="14" height="14" rx="3" fill="#1D9E75"/>
-<text class="ts" x="517" y="1285" dominant-baseline="central" fill="#1a1a1a">PV Surplus</text>
-<rect x="598" y="1278" width="14" height="14" rx="3" fill="#F09595"/>
-<text class="ts" x="618" y="1285" dominant-baseline="central" fill="#1a1a1a">Stop</text>
-
-<text class="ts" x="340" y="1340" text-anchor="middle" fill="#1a1a1a">v1.3.0-beta – github.com/atcodrinky/ha-supersmart-ev-charging</text>
-<text class="ts" x="340" y="1360" text-anchor="middle" fill="#1a1a1a">SuperSmart EV Charging – HACS Integration</text>
-
+  <rect x="50" y="914" width="1500" height="66" rx="18" fill="#17213A"/><line x1="530" y1="928" x2="530" y2="966" stroke="#52627A"/><line x1="1045" y1="928" x2="1045" y2="966" stroke="#52627A"/>
+  <text x="78" y="939" font-size="12" font-weight="700" fill="#7FB0FF">FORCE / OFF-PEAK</text><text x="78" y="960" font-size="13" font-weight="500" fill="#fff">A = (total limit − household loads) ÷ voltage</text>
+  <text x="558" y="939" font-size="12" font-weight="700" fill="#72D6AC">PHOTOVOLTAIC</text><text x="558" y="960" font-size="13" font-weight="500" fill="#fff">A target = current A + (−grid + offset) ÷ voltage</text>
+  <text x="1073" y="939" font-size="12" font-weight="700" fill="#D3C2FF">USEFUL INFORMATION</text><text x="1073" y="960" font-size="13" font-weight="500" fill="#fff">mode · target · actual current · estimated time and end</text>
 </svg>
