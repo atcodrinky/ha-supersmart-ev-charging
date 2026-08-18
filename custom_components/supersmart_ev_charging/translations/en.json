@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "SuperSmart EV Charging – General settings",
-        "description": "Configure contract power, battery capacity and SOC targets. Targets can be changed later via number entities.",
+        "description": "Configure the total operating power ceiling (house + wallbox), battery capacity and SOC targets. Actual power may remain lower because of voltage, other wallbox limits or vehicle demand. Targets can be changed later via number entities.",
         "data": {
           "contract_power_w": "Contract power limit (W)",
           "battery_capacity_kwh": "Usable vehicle battery capacity (kWh)",

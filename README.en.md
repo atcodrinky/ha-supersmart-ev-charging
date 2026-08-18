@@ -171,6 +171,10 @@ The user target cannot exceed the vehicle target. A negative PV offset requires
 an export margin: for example, `-200 W` aims to keep approximately 200 W
 exported to the grid.
 
+Contract power is the **total operating ceiling for the house and wallbox**,
+not a guaranteed consumption target. Actual power may remain lower because of
+household loads, effective voltage, internal wallbox limits or vehicle demand.
+
 ### Actions
 
 ```yaml
