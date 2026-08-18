@@ -173,6 +173,11 @@ Il target utente non può superare il target veicolo. Un offset FV negativo
 richiede un margine di esportazione: per esempio `-200 W` mira a mantenere
 circa 200 W ceduti alla rete.
 
+La potenza contrattuale è il **tetto operativo totale di casa e wallbox**, non
+un obiettivo di consumo garantito. La potenza reale può restare più bassa per i
+consumi domestici, la tensione effettiva, i limiti interni della wallbox o la
+corrente richiesta dall'auto.
+
 ### Azioni
 
 ```yaml

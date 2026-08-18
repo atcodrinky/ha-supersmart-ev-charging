@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "SuperSmart EV Charging – Impostazioni generali",
-        "description": "Configura potenza contrattuale, batteria e target SOC. I target SOC possono essere modificati in seguito dalle entità number.",
+        "description": "Configura il tetto operativo di potenza totale (casa + wallbox), batteria e target SOC. La potenza reale può restare inferiore per tensione, altri limiti della wallbox o richiesta dell'auto. I target SOC possono essere modificati in seguito dalle entità number.",
         "data": {
           "contract_power_w": "Potenza contratto (W)",
           "battery_capacity_kwh": "Capacità utile batteria veicolo (kWh)",
