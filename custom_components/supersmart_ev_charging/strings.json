@@ -5,7 +5,7 @@
         "title": "SuperSmart EV Charging – Impostazioni generali",
         "description": "Configura il tetto operativo di potenza totale (casa + wallbox), batteria e target SOC. La potenza reale può restare inferiore per tensione, altri limiti della wallbox o richiesta dell'auto. I target SOC possono essere modificati in seguito dalle entità number.",
         "data": {
-          "contract_power_w": "Potenza contratto (W)",
+          "contract_power_w": "Limite operativo potenza totale – casa + wallbox (W)",
           "battery_capacity_kwh": "Capacità utile batteria veicolo (kWh)",
           "tariff_enabled": "Abilita ricarica in fascia off-peak (F3)",
           "mqtt_enabled": "Abilita controllo wallbox via MQTT",
@@ -100,9 +100,9 @@
     "number": {
       "user_soc_target": { "name": "Target SOC utente (Notte F3)" },
       "vehicle_soc_target": { "name": "Target SOC veicolo (Surplus FV / Forza)" },
-      "contract_power": { "name": "Potenza contrattuale" },
+      "contract_power": { "name": "Limite operativo potenza totale" },
       "allowed_import": { "name": "Import rete permesso (offset FV)" },
-      "night_power_limit": { "name": "Limite potenza notturna F3" },
+      "night_power_limit": { "name": "Limite operativo potenza totale F3" },
       "battery_capacity": { "name": "Capacità utile batteria" }
     }
   }

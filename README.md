@@ -23,7 +23,7 @@ comandi equivalenti.
 |---|---|
 | ☀️ **Surplus FV** | Modula la corrente usando l'energia solare disponibile e un offset di rete configurabile |
 | 🌙 **Ricarica notturna** | Carica nella fascia off-peak scelta, per esempio F3, fino al target SOC utente |
-| ⚡ **Load balancing** | Limita la ricarica in base alla potenza contrattuale e ai consumi dell'abitazione |
+| ⚡ **Load balancing** | Limita la ricarica in base alla soglia operativa totale e ai consumi dell'abitazione |
 | 🔋 **Doppio target SOC** | Target utente per la notte e target veicolo per FV e Forza Ricarica |
 | 🚀 **Forza Ricarica** | Avvia la ricarica indipendentemente da fascia tariffaria e surplus FV |
 | 🛑 **Master Stop** | Revoca immediatamente l'autorizzazione e blocca ogni modalità di ricarica |
@@ -71,7 +71,7 @@ comandi equivalenti.
 
 | Campo | Descrizione | Valore iniziale |
 |---|---|---|
-| Potenza contrattuale | Limite disponibile dell'abitazione | 5700 W |
+| Limite operativo potenza totale | Tetto complessivo desiderato per casa e wallbox | 5700 W |
 | Capacità utile batteria | Capacità realmente utilizzabile, modificabile nel tempo | 60 kWh |
 | Target SOC utente | Obiettivo usato dalla ricarica notturna | 50% |
 | Target SOC veicolo | Obiettivo usato da FV e Forza Ricarica | 80% |
@@ -164,19 +164,20 @@ quelli effettivi in **Impostazioni → Dispositivi e servizi → Entità**.
 |---|---:|---:|
 | Target SOC utente | 10–100% | 50% |
 | Target SOC veicolo | 20–100% | 80% |
-| Potenza contrattuale | 1500–22000 W | 5700 W |
+| Limite operativo potenza totale | 1500–22000 W | 5700 W |
 | Import rete permesso / offset FV | -500–+500 W | 200 W |
-| Limite potenza notturna | 1000–22000 W | 3000 W |
+| Limite operativo potenza totale F3 | 1000–22000 W | 3000 W |
 | Capacità utile batteria | 1–250 kWh | 60 kWh |
 
 Il target utente non può superare il target veicolo. Un offset FV negativo
 richiede un margine di esportazione: per esempio `-200 W` mira a mantenere
 circa 200 W ceduti alla rete.
 
-La potenza contrattuale è il **tetto operativo totale di casa e wallbox**, non
-un obiettivo di consumo garantito. La potenza reale può restare più bassa per i
-consumi domestici, la tensione effettiva, i limiti interni della wallbox o la
-corrente richiesta dall'auto.
+Il limite operativo è il **tetto totale desiderato per casa e wallbox**, non il
+valore nominale del contratto e non un obiettivo di consumo garantito. Va scelto
+lasciando l'eventuale tolleranza del contatore come buffer. La potenza reale può
+restare più bassa per i consumi domestici, la tensione effettiva, i limiti
+interni della wallbox o la corrente richiesta dall'auto.
 
 ### Azioni
 

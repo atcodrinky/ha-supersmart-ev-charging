@@ -23,7 +23,7 @@ equivalent entities and commands.
 |---|---|
 | ☀️ **PV surplus** | Modulates charging current using available solar power and a configurable grid offset |
 | 🌙 **Off-peak charging** | Charges during the selected cheap tariff, such as F3, up to the user SOC target |
-| ⚡ **Load balancing** | Limits charging according to the contract power and household consumption |
+| ⚡ **Load balancing** | Limits charging according to the total operating threshold and household consumption |
 | 🔋 **Dual SOC target** | User target for off-peak charging and vehicle target for PV/Force Charge |
 | 🚀 **Force Charge** | Starts charging regardless of tariff band and PV surplus |
 | 🛑 **Master Stop** | Immediately revokes authorization and blocks every charging mode |
@@ -70,7 +70,7 @@ equivalent entities and commands.
 
 | Field | Description | Initial value |
 |---|---|---|
-| Contract power | Available household contract limit | 5700 W |
+| Total operating power limit | Desired overall ceiling for the house and wallbox | 5700 W |
 | Usable battery capacity | Actual usable capacity, adjustable over time | 60 kWh |
 | User SOC target | Target used by off-peak charging | 50% |
 | Vehicle SOC target | Target used by PV and Force Charge | 80% |
@@ -162,18 +162,20 @@ under **Settings → Devices & services → Entities**.
 |---|---:|---:|
 | User SOC Target | 10–100% | 50% |
 | Vehicle SOC Target | 20–100% | 80% |
-| Contract Power Limit | 1500–22000 W | 5700 W |
+| Total Operating Power Limit | 1500–22000 W | 5700 W |
 | Allowed Grid Import / PV Offset | -500–+500 W | 200 W |
-| Night Charging Power Limit | 1000–22000 W | 3000 W |
+| Off-Peak Total Operating Power Limit | 1000–22000 W | 3000 W |
 | Usable Battery Capacity | 1–250 kWh | 60 kWh |
 
 The user target cannot exceed the vehicle target. A negative PV offset requires
 an export margin: for example, `-200 W` aims to keep approximately 200 W
 exported to the grid.
 
-Contract power is the **total operating ceiling for the house and wallbox**,
-not a guaranteed consumption target. Actual power may remain lower because of
-household loads, effective voltage, internal wallbox limits or vehicle demand.
+The operating limit is the **desired total ceiling for the house and wallbox**,
+not the nominal contract rating and not a guaranteed consumption target. It
+should leave any meter tolerance available as a buffer. Actual power may remain
+lower because of household loads, effective voltage, internal wallbox limits or
+vehicle demand.
 
 ### Actions
 
