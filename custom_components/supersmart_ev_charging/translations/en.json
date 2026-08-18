@@ -5,7 +5,7 @@
         "title": "SuperSmart EV Charging – General settings",
         "description": "Configure the total operating power ceiling (house + wallbox), battery capacity and SOC targets. Actual power may remain lower because of voltage, other wallbox limits or vehicle demand. Targets can be changed later via number entities.",
         "data": {
-          "contract_power_w": "Contract power limit (W)",
+          "contract_power_w": "Total operating power limit – house + wallbox (W)",
           "battery_capacity_kwh": "Usable vehicle battery capacity (kWh)",
           "tariff_enabled": "Enable off-peak tariff charging (F3 / night)",
           "mqtt_enabled": "Enable wallbox control via MQTT",
@@ -100,9 +100,9 @@
     "number": {
       "user_soc_target": { "name": "User SOC Target (Night F3)" },
       "vehicle_soc_target": { "name": "Vehicle SOC Target (PV Surplus / Force)" },
-      "contract_power": { "name": "Contract Power Limit" },
+      "contract_power": { "name": "Total Operating Power Limit" },
       "allowed_import": { "name": "Allowed Grid Import Offset (PV)" },
-      "night_power_limit": { "name": "Night Power Limit (F3)" },
+      "night_power_limit": { "name": "Off-Peak Total Operating Power Limit" },
       "battery_capacity": { "name": "Usable Battery Capacity" }
     }
   }
