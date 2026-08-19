@@ -77,6 +77,7 @@ equivalent entities and commands.
 | Off-peak tariff | Enables the off-peak charging logic | Enabled |
 | MQTT | Enables MQTT wallbox control | Enabled |
 | MQTT energy telemetry | Publishes energy data to the configured topics | Enabled |
+| Notifications | Opens the optional notification setup | Disabled |
 
 ### Step 2 — Home Assistant entities
 
@@ -101,12 +102,21 @@ equivalent entities and commands.
 | Wallbox voltage | Uses 230 V; sensor values are internally clamped to 180–260 V |
 | Wallbox port/mode | Only improves notification classification |
 | Authorize/revoke buttons | Falls back to the configured MQTT topics |
-| Notification service | No notifications are sent |
 
 When off-peak charging is enabled, also select the tariff sensor and enter the
 value identifying the cheap band, for example `F3`.
 
-### Step 3 — MQTT commands
+### Optional step — Notifications
+
+When enabled in the first step, one or more `notify.*` actions can be selected
+from a dropdown. Messages can automatically follow the Home Assistant language
+or explicitly use Italian or English. Titles and messages can be customized
+with `{mode}`, `{soc}`, `{target}`, `{time_remaining}` and `{charge_end_time}`.
+
+Notifications can also be enabled, disabled or changed later from the
+integration gear icon without recreating the device or its entities.
+
+### Final step — MQTT commands
 
 This step is displayed when MQTT is enabled.
 
