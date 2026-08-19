@@ -10,6 +10,7 @@
           "tariff_enabled": "Enable off-peak tariff charging (F3 / night)",
           "mqtt_enabled": "Enable wallbox control via MQTT",
           "energy_publish_enabled": "Publish energy telemetry to Prism via MQTT",
+          "notifications_enabled": "Configure charging notifications now",
           "initial_user_soc_target": "User SOC target – used for NIGHT F3 charging (%)",
           "initial_vehicle_soc_target": "Vehicle SOC target – used for PV SURPLUS & FORCE (%)"
         }
@@ -35,6 +36,25 @@
           "tariff_offpeak_value": "Off-peak tariff value (e.g. F3, cheap, low)"
         }
       },
+      "notifications": {
+        "title": "SuperSmart EV Charging – Notifications",
+        "description": "Select one or more notification destinations. If a phone is missing, finish setup and add it later from the integration settings.",
+        "data": {
+          "notify_services": "Notification destinations",
+          "notification_language": "Notification language",
+          "notification_customize": "Customize notification messages"
+        }
+      },
+      "notification_messages": {
+        "title": "SuperSmart EV Charging – Notification messages",
+        "description": "Available placeholders: {placeholders}. Use double braces to display a literal brace.",
+        "data": {
+          "notify_start_title": "Charging started – title",
+          "notify_start_message": "Charging started – message",
+          "notify_stop_title": "Charging completed – title",
+          "notify_stop_message": "Charging completed – message"
+        }
+      },
       "mqtt": {
         "title": "SuperSmart EV Charging – Wallbox MQTT configuration",
         "description": "MQTT topics for wallbox control. For Silla Prism: set_mode = prism/1/command/set_mode, current = prism/1/command/set_current_limit. Authorize/revoke topics are only used if HA button entities are NOT configured.",
@@ -53,7 +73,9 @@
       }
     },
     "error": {
-      "entity_not_found": "Entity not found in Home Assistant"
+      "entity_not_found": "Entity not found in Home Assistant",
+      "notification_destination_required": "Select at least one valid notify.* destination",
+      "invalid_notification_template": "A message contains invalid braces or an unsupported placeholder"
     },
     "abort": {
       "already_configured": "SuperSmart EV Charging already configured"
@@ -63,12 +85,58 @@
     "step": {
       "init": {
         "title": "SuperSmart EV Charging – Options",
+        "menu_options": {
+          "general": "General settings",
+          "notifications": "Notifications"
+        }
+      },
+      "general": {
+        "title": "SuperSmart EV Charging – General settings",
         "data": {
           "battery_capacity_kwh": "Usable battery capacity (kWh)",
           "tariff_enabled": "Enable off-peak charging",
           "mqtt_enabled": "Enable MQTT",
           "energy_publish_enabled": "Publish Prism energy telemetry"
         }
+      },
+      "notifications": {
+        "title": "SuperSmart EV Charging – Notifications",
+        "description": "Enable notifications now or leave them disabled without changing the rest of the integration.",
+        "data": {
+          "notifications_enabled": "Enable charging notifications"
+        }
+      },
+      "notification_settings": {
+        "title": "SuperSmart EV Charging – Notification settings",
+        "description": "Select one or more notify.* actions currently registered in Home Assistant.",
+        "data": {
+          "notify_services": "Notification destinations",
+          "notification_language": "Notification language",
+          "notification_customize": "Customize notification messages"
+        }
+      },
+      "notification_messages": {
+        "title": "SuperSmart EV Charging – Notification messages",
+        "description": "Available placeholders: {placeholders}. Use double braces to display a literal brace.",
+        "data": {
+          "notify_start_title": "Charging started – title",
+          "notify_start_message": "Charging started – message",
+          "notify_stop_title": "Charging completed – title",
+          "notify_stop_message": "Charging completed – message"
+        }
+      }
+    },
+    "error": {
+      "notification_destination_required": "Select at least one valid notify.* destination",
+      "invalid_notification_template": "A message contains invalid braces or an unsupported placeholder"
+    }
+  },
+  "selector": {
+    "notification_language": {
+      "options": {
+        "auto": "Automatic – Home Assistant language",
+        "it": "Italian",
+        "en": "English"
       }
     }
   },

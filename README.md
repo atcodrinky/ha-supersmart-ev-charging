@@ -78,6 +78,7 @@ comandi equivalenti.
 | Fascia off-peak | Abilita la logica della ricarica notturna | Attiva |
 | MQTT | Abilita il controllo della wallbox tramite MQTT | Attivo |
 | Telemetria energia MQTT | Pubblica i dati energetici sui topic configurati | Attiva |
+| Notifiche | Apre la configurazione facoltativa delle notifiche | Disattivate |
 
 ### Passaggio 2 — Entità Home Assistant
 
@@ -102,12 +103,22 @@ comandi equivalenti.
 | Tensione wallbox | Usa 230 V; i valori letti sono limitati internamente a 180–260 V |
 | Modalità/porta wallbox | Usata soltanto per migliorare la classificazione delle notifiche |
 | Button autorizza/revoca | Usa come fallback i topic MQTT configurati |
-| Servizio notifiche | Le notifiche non vengono inviate |
 
 Se la fascia off-peak è attiva, seleziona anche il sensore tariffario e indica il
 valore che identifica la fascia economica, per esempio `F3`.
 
-### Passaggio 3 — Comandi MQTT
+### Passaggio facoltativo — Notifiche
+
+Se abilitate nel primo passaggio, è possibile scegliere da un menu uno o più
+servizi `notify.*`, usare automaticamente la lingua di Home Assistant oppure
+selezionare italiano o inglese. Titoli e messaggi possono essere personalizzati
+con `{mode}`, `{soc}`, `{target}`, `{time_remaining}` e `{charge_end_time}`.
+
+Le notifiche possono anche essere abilitate, disabilitate o modificate in
+seguito dall'icona dell'ingranaggio dell'integrazione, senza ricreare il
+dispositivo o le entità.
+
+### Passaggio finale — Comandi MQTT
 
 Il passaggio compare quando MQTT è abilitato.
 

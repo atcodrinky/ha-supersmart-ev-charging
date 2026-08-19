@@ -54,6 +54,14 @@ from .const import (
     CONF_MQTT_TOPIC_POWER_SOLAR,
     CONF_MQTT_TOPIC_POWER_HOUSE,
     CONF_NOTIFY_SERVICE,
+    CONF_NOTIFY_SERVICES,
+    CONF_NOTIFICATIONS_ENABLED,
+    CONF_NOTIFICATION_LANGUAGE,
+    CONF_NOTIFICATION_CUSTOMIZE,
+    CONF_NOTIFY_START_TITLE,
+    CONF_NOTIFY_START_MESSAGE,
+    CONF_NOTIFY_STOP_TITLE,
+    CONF_NOTIFY_STOP_MESSAGE,
     CONF_WALLBOX_MODE_ENTITY,
     DEFAULT_CONTRACT_POWER_W,
     DEFAULT_BATTERY_CAPACITY_KWH,
@@ -84,7 +92,9 @@ from .const import (
     CHARGING_MODE_NIGHT,
     CHARGING_MODE_FORCE,
     CHARGING_MODE_MASTER_STOP,
+    NOTIFICATION_LANGUAGE_AUTO,
 )
+from .notifications import notification_defaults, render_notification_template
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -173,7 +183,28 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._tariff_entity          = d.get(CONF_TARIFF_ENTITY,               "")  # sensor.pun_fascia_corrente
         self._tariff_offpeak         = d.get(CONF_TARIFF_OFFPEAK_VALUE, DEFAULT_TARIFF_OFFPEAK_VALUE)
         self._wallbox_mode_entity    = d.get(CONF_WALLBOX_MODE_ENTITY, "")
-        self._notify_service         = d.get(CONF_NOTIFY_SERVICE, "").strip()
+        legacy_notify_service = str(d.get(CONF_NOTIFY_SERVICE, "")).strip()
+        notify_services = d.get(CONF_NOTIFY_SERVICES)
+        if notify_services is None:
+            notify_services = [legacy_notify_service] if legacy_notify_service else []
+        elif isinstance(notify_services, str):
+            notify_services = [notify_services]
+        self._notify_services = [
+            str(service).strip() for service in notify_services if str(service).strip()
+        ]
+        self._notifications_enabled = bool(
+            d.get(CONF_NOTIFICATIONS_ENABLED, bool(self._notify_services))
+        )
+        self._notification_language = d.get(
+            CONF_NOTIFICATION_LANGUAGE, NOTIFICATION_LANGUAGE_AUTO
+        )
+        self._notification_customize = bool(d.get(CONF_NOTIFICATION_CUSTOMIZE, False))
+        self._notification_templates = {
+            "start_title": d.get(CONF_NOTIFY_START_TITLE),
+            "start_message": d.get(CONF_NOTIFY_START_MESSAGE),
+            "stop_title": d.get(CONF_NOTIFY_STOP_TITLE),
+            "stop_message": d.get(CONF_NOTIFY_STOP_MESSAGE),
+        }
 
         # ── Power / capacity
         self._contract_power_w: float     = d.get(CONF_CONTRACT_POWER_W,     DEFAULT_CONTRACT_POWER_W)
@@ -1042,7 +1073,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self._vehicle_limit_requested_value = None
 
     def _schedule_charge_notification(self, old_state: str, new_state: str) -> None:
-        if not self._notify_service:
+        if not self._notifications_enabled or not self._notify_services:
             return
         if new_state == WB_STATE_CHARGING:
             task = self.hass.async_create_task(self._notify_charge_started())
@@ -1061,16 +1092,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._last_notified_mode = mode
         soc = int(self._get_float(self._soc_entity))
         target = int(self.user_soc_target if mode == "notturna_f3" else self.vehicle_soc_target)
-        labels = {
-            "fv_surplus": "FV Surplus ☀️",
-            "notturna_f3": "Notturna F3 🌙",
-            "forza": "FORZA ⚡",
-            "sconosciuta": "Sconosciuta ❓",
-        }
-        message = f"Modalità: {labels[mode]}\nSOC: {soc}%"
-        if mode != "sconosciuta":
-            message += f"\nTarget: {target}%"
-        await self._notify("🚗 Ricarica Avviata 🚗", message)
+        defaults = notification_defaults(
+            self._notification_language, self.hass.config.language
+        )
+        context = self._notification_context(mode, soc, target, defaults)
+        await self._notify_from_template("start", context, defaults)
 
     async def _notify_charge_stopped(self) -> None:
         await asyncio.sleep(15)
@@ -1078,17 +1104,67 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             return
         mode = self._last_notified_mode
         soc = int(self._get_float(self._soc_entity))
-        labels = {
-            "fv_surplus": "FV Surplus ☀️",
-            "notturna_f3": "Notturna F3 🌙",
-            "forza": "FORZA ⚡",
-            "sconosciuta": "Sconosciuta ❓",
-        }
-        await self._notify(
-            "🏁 Ricarica Terminata 🏁",
-            f"Modalità: {labels.get(mode, labels['sconosciuta'])}\nSOC finale: {soc}%",
+        target = int(
+            self.user_soc_target if mode == "notturna_f3" else self.vehicle_soc_target
         )
+        defaults = notification_defaults(
+            self._notification_language, self.hass.config.language
+        )
+        context = self._notification_context(mode, soc, target, defaults)
+        await self._notify_from_template("stop", context, defaults)
         self._last_notified_mode = "sconosciuta"
+
+    def _notification_context(
+        self,
+        mode: str,
+        soc: int,
+        target: int,
+        defaults: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build values exposed to optional user notification templates."""
+        remaining = (self.data or {}).get("remaining_minutes")
+        if remaining is None:
+            time_remaining = "—"
+        else:
+            hours, minutes = divmod(max(0, int(remaining)), 60)
+            time_remaining = f"{hours}h {minutes:02d}m" if hours else f"{minutes}m"
+        end_time = (self.data or {}).get("charge_end_time")
+        charge_end_time = (
+            dt_util.as_local(end_time).strftime("%H:%M")
+            if isinstance(end_time, datetime)
+            else "—"
+        )
+        labels = defaults["modes"]
+        return {
+            "mode": labels.get(mode, labels["sconosciuta"]),
+            "soc": soc,
+            "target": target,
+            "time_remaining": time_remaining,
+            "charge_end_time": charge_end_time,
+        }
+
+    async def _notify_from_template(
+        self,
+        event: str,
+        context: dict[str, Any],
+        defaults: dict[str, Any],
+    ) -> None:
+        """Render localized defaults or the user's optional templates."""
+        title_key = f"{event}_title"
+        message_key = f"{event}_message"
+        title_template = defaults[title_key]
+        message_template = defaults[message_key]
+        if self._notification_customize:
+            title_template = self._notification_templates.get(title_key) or title_template
+            message_template = self._notification_templates.get(message_key) or message_template
+        try:
+            title = render_notification_template(title_template, context)
+            message = render_notification_template(message_template, context)
+        except ValueError:
+            _LOGGER.warning("Template notifica non valido; uso il testo predefinito")
+            title = render_notification_template(defaults[title_key], context)
+            message = render_notification_template(defaults[message_key], context)
+        await self._notify(title, message)
 
     def _notification_mode(self) -> str:
         if self.force_charge or self.charging_mode == CHARGING_MODE_FORCE:
@@ -1101,14 +1177,21 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         return "sconosciuta"
 
     async def _notify(self, title: str, message: str) -> None:
-        try:
-            domain, service = self._notify_service.split(".", 1)
-        except ValueError:
-            _LOGGER.warning("Servizio notifica non valido: %s", self._notify_service)
-            return
-        await self.hass.services.async_call(
-            domain, service, {"title": title, "message": message}, blocking=False
-        )
+        for notify_service in self._notify_services:
+            try:
+                domain, service = notify_service.split(".", 1)
+            except ValueError:
+                _LOGGER.warning("Servizio notifica non valido: %s", notify_service)
+                continue
+            if domain != "notify" or not self.hass.services.has_service(domain, service):
+                _LOGGER.warning("Servizio notifica non disponibile: %s", notify_service)
+                continue
+            await self.hass.services.async_call(
+                domain,
+                service,
+                {"title": title, "message": message},
+                blocking=False,
+            )
 
     async def async_shutdown(self) -> None:
         if self._state_change_task and not self._state_change_task.done():

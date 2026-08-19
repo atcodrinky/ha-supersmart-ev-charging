@@ -42,6 +42,14 @@ from .const import (
     CONF_MQTT_TOPIC_POWER_SOLAR,
     CONF_MQTT_TOPIC_POWER_HOUSE,
     CONF_NOTIFY_SERVICE,
+    CONF_NOTIFY_SERVICES,
+    CONF_NOTIFICATIONS_ENABLED,
+    CONF_NOTIFICATION_LANGUAGE,
+    CONF_NOTIFICATION_CUSTOMIZE,
+    CONF_NOTIFY_START_TITLE,
+    CONF_NOTIFY_START_MESSAGE,
+    CONF_NOTIFY_STOP_TITLE,
+    CONF_NOTIFY_STOP_MESSAGE,
     CONF_WALLBOX_MODE_ENTITY,
     DEFAULT_CONTRACT_POWER_W,
     DEFAULT_BATTERY_CAPACITY_KWH,
@@ -58,7 +66,11 @@ from .const import (
     DEFAULT_TARIFF_OFFPEAK_VALUE,
     DEFAULT_USER_SOC_TARGET,
     DEFAULT_VEHICLE_SOC_TARGET,
+    NOTIFICATION_LANGUAGE_AUTO,
+    NOTIFICATION_LANGUAGE_EN,
+    NOTIFICATION_LANGUAGE_IT,
 )
+from .notifications import notification_defaults, validate_notification_template
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,12 +78,80 @@ CONF_INITIAL_USER_SOC_TARGET    = "initial_user_soc_target"
 CONF_INITIAL_VEHICLE_SOC_TARGET = "initial_vehicle_soc_target"
 
 
+def _available_notify_services(hass) -> list[str]:
+    """Return current notify actions for a dropdown, excluding the generic action."""
+    services = hass.services.async_services().get("notify", {})
+    return sorted(
+        f"notify.{service}"
+        for service in services
+        if service != "send_message"
+    )
+
+
+def _normalize_notify_services(value: Any) -> list[str]:
+    """Normalize legacy single-service values and multi-select values."""
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return [str(item) for item in value if item]
+
+
+def _valid_notify_services(services: list[str]) -> bool:
+    """Return whether all selected actions belong to the notify domain."""
+    return bool(services) and all(
+        service.startswith("notify.") and service.count(".") == 1
+        for service in services
+    )
+
+
+def _notify_service_selector(hass) -> selector.SelectSelector:
+    """Build a dropdown while retaining manual support for custom notify groups."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=_available_notify_services(hass),
+            multiple=True,
+            custom_value=True,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _notification_language_selector() -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                NOTIFICATION_LANGUAGE_AUTO,
+                NOTIFICATION_LANGUAGE_IT,
+                NOTIFICATION_LANGUAGE_EN,
+            ],
+            translation_key="notification_language",
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _validate_message_fields(user_input: dict[str, Any]) -> bool:
+    try:
+        for key in (
+            CONF_NOTIFY_START_TITLE,
+            CONF_NOTIFY_START_MESSAGE,
+            CONF_NOTIFY_STOP_TITLE,
+            CONF_NOTIFY_STOP_MESSAGE,
+        ):
+            validate_notification_template(str(user_input[key]))
+    except (KeyError, ValueError):
+        return False
+    return True
+
+
 class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """
-    3-step config flow for SuperSmart EV Charging:
+    Multi-step config flow for SuperSmart EV Charging:
     Step 1 – General settings (power, battery, SOC targets, feature flags)
     Step 2 – Entity selection (vehicle, wallbox, energy sensors)
-    Step 3 – MQTT configuration (topics and payloads)
+    Optional – Notifications (recipients, language, custom messages)
+    Final – MQTT configuration (topics and payloads)
     """
 
     VERSION = 1
@@ -97,6 +177,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_TARIFF_ENABLED,               default=True): bool,
                 vol.Required(CONF_MQTT_ENABLED,                 default=True): bool,
                 vol.Required(CONF_ENERGY_PUBLISH_ENABLED,       default=True): bool,
+                vol.Required(CONF_NOTIFICATIONS_ENABLED,        default=False): bool,
             }),
         )
 
@@ -104,9 +185,9 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_entities(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         if user_input is not None:
             self._data.update(user_input)
-            if self._data.get(CONF_MQTT_ENABLED):
-                return await self.async_step_mqtt()
-            return self._create_entry()
+            if self._data.get(CONF_NOTIFICATIONS_ENABLED):
+                return await self.async_step_notifications()
+            return await self._finish_optional_steps()
 
         schema_fields: dict = {
             vol.Required(CONF_VEHICLE_SOC_ENTITY): selector.EntitySelector(
@@ -156,7 +237,6 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_BUTTON_REVOKE_ENTITY): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="button")
             ),
-            vol.Optional(CONF_NOTIFY_SERVICE): str,
         }
 
         if self._data.get(CONF_TARIFF_ENABLED):
@@ -169,6 +249,93 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="entities",
             data_schema=vol.Schema(schema_fields),
         )
+
+    # ── Optional notifications ────────────────────────────────────────────────
+    async def async_step_notifications(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            services = _normalize_notify_services(user_input.get(CONF_NOTIFY_SERVICES))
+            if not _valid_notify_services(services):
+                errors["base"] = "notification_destination_required"
+            else:
+                user_input[CONF_NOTIFY_SERVICES] = services
+                self._data.update(user_input)
+                if user_input.get(CONF_NOTIFICATION_CUSTOMIZE):
+                    return await self.async_step_notification_messages()
+                return await self._finish_optional_steps()
+
+        legacy = self._data.get(CONF_NOTIFY_SERVICE, "")
+        selected_services = _normalize_notify_services(
+            self._data.get(CONF_NOTIFY_SERVICES, legacy)
+        )
+        return self.async_show_form(
+            step_id="notifications",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_NOTIFY_SERVICES,
+                    default=selected_services,
+                ): _notify_service_selector(self.hass),
+                vol.Required(
+                    CONF_NOTIFICATION_LANGUAGE,
+                    default=self._data.get(
+                        CONF_NOTIFICATION_LANGUAGE, NOTIFICATION_LANGUAGE_AUTO
+                    ),
+                ): _notification_language_selector(),
+                vol.Required(
+                    CONF_NOTIFICATION_CUSTOMIZE,
+                    default=self._data.get(CONF_NOTIFICATION_CUSTOMIZE, False),
+                ): selector.BooleanSelector(),
+            }),
+            errors=errors,
+        )
+
+    async def async_step_notification_messages(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if _validate_message_fields(user_input):
+                self._data.update(user_input)
+                return await self._finish_optional_steps()
+            errors["base"] = "invalid_notification_template"
+
+        defaults = notification_defaults(
+            self._data.get(CONF_NOTIFICATION_LANGUAGE, NOTIFICATION_LANGUAGE_AUTO),
+            self.hass.config.language,
+        )
+        values = user_input or self._data
+        return self.async_show_form(
+            step_id="notification_messages",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_NOTIFY_START_TITLE,
+                    default=values.get(CONF_NOTIFY_START_TITLE, defaults["start_title"]),
+                ): selector.TextSelector(),
+                vol.Required(
+                    CONF_NOTIFY_START_MESSAGE,
+                    default=values.get(CONF_NOTIFY_START_MESSAGE, defaults["start_message"]),
+                ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
+                vol.Required(
+                    CONF_NOTIFY_STOP_TITLE,
+                    default=values.get(CONF_NOTIFY_STOP_TITLE, defaults["stop_title"]),
+                ): selector.TextSelector(),
+                vol.Required(
+                    CONF_NOTIFY_STOP_MESSAGE,
+                    default=values.get(CONF_NOTIFY_STOP_MESSAGE, defaults["stop_message"]),
+                ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
+            }),
+            errors=errors,
+            description_placeholders={
+                "placeholders": "{mode}, {soc}, {target}, {time_remaining}, {charge_end_time}"
+            },
+        )
+
+    async def _finish_optional_steps(self) -> FlowResult:
+        if self._data.get(CONF_MQTT_ENABLED):
+            return await self.async_step_mqtt()
+        return self._create_entry()
 
     # ── Step 3: MQTT configuration ─────────────────────────────────────────────
     async def async_step_mqtt(self, user_input: dict[str, Any] | None = None) -> FlowResult:
@@ -214,14 +381,23 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
         # Compatibile sia con HA recente sia con le versioni in cui la config
         # entry doveva essere conservata esplicitamente dall'options flow.
         self._config_entry = config_entry
+        self._pending: dict[str, Any] = {}
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["general", "notifications"],
+        )
+
+    async def async_step_general(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            return self._save_options(user_input)
 
         d = {**self._config_entry.data, **self._config_entry.options}
         return self.async_show_form(
-            step_id="init",
+            step_id="general",
             data_schema=vol.Schema({
                 vol.Required(
                     CONF_BATTERY_CAPACITY_KWH,
@@ -240,4 +416,114 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                     default=d.get(CONF_ENERGY_PUBLISH_ENABLED, True),
                 ): bool,
             }),
+        )
+
+    async def async_step_notifications(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        d = {**self._config_entry.data, **self._config_entry.options}
+        legacy_enabled = bool(d.get(CONF_NOTIFY_SERVICE))
+        if user_input is not None:
+            self._pending.update(user_input)
+            if not user_input[CONF_NOTIFICATIONS_ENABLED]:
+                return self._save_options(self._pending)
+            return await self.async_step_notification_settings()
+
+        return self.async_show_form(
+            step_id="notifications",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_NOTIFICATIONS_ENABLED,
+                    default=d.get(CONF_NOTIFICATIONS_ENABLED, legacy_enabled),
+                ): selector.BooleanSelector(),
+            }),
+        )
+
+    async def async_step_notification_settings(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        d = {**self._config_entry.data, **self._config_entry.options, **self._pending}
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            services = _normalize_notify_services(user_input.get(CONF_NOTIFY_SERVICES))
+            if not _valid_notify_services(services):
+                errors["base"] = "notification_destination_required"
+            else:
+                user_input[CONF_NOTIFY_SERVICES] = services
+                self._pending.update(user_input)
+                if user_input.get(CONF_NOTIFICATION_CUSTOMIZE):
+                    return await self.async_step_notification_messages()
+                return self._save_options(self._pending)
+
+        legacy = d.get(CONF_NOTIFY_SERVICE, "")
+        selected_services = _normalize_notify_services(
+            d.get(CONF_NOTIFY_SERVICES, legacy)
+        )
+        return self.async_show_form(
+            step_id="notification_settings",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_NOTIFY_SERVICES,
+                    default=selected_services,
+                ): _notify_service_selector(self.hass),
+                vol.Required(
+                    CONF_NOTIFICATION_LANGUAGE,
+                    default=d.get(
+                        CONF_NOTIFICATION_LANGUAGE, NOTIFICATION_LANGUAGE_AUTO
+                    ),
+                ): _notification_language_selector(),
+                vol.Required(
+                    CONF_NOTIFICATION_CUSTOMIZE,
+                    default=d.get(CONF_NOTIFICATION_CUSTOMIZE, False),
+                ): selector.BooleanSelector(),
+            }),
+            errors=errors,
+        )
+
+    async def async_step_notification_messages(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        d = {**self._config_entry.data, **self._config_entry.options, **self._pending}
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if _validate_message_fields(user_input):
+                self._pending.update(user_input)
+                return self._save_options(self._pending)
+            errors["base"] = "invalid_notification_template"
+
+        defaults = notification_defaults(
+            d.get(CONF_NOTIFICATION_LANGUAGE, NOTIFICATION_LANGUAGE_AUTO),
+            self.hass.config.language,
+        )
+        values = user_input or d
+        return self.async_show_form(
+            step_id="notification_messages",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_NOTIFY_START_TITLE,
+                    default=values.get(CONF_NOTIFY_START_TITLE, defaults["start_title"]),
+                ): selector.TextSelector(),
+                vol.Required(
+                    CONF_NOTIFY_START_MESSAGE,
+                    default=values.get(CONF_NOTIFY_START_MESSAGE, defaults["start_message"]),
+                ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
+                vol.Required(
+                    CONF_NOTIFY_STOP_TITLE,
+                    default=values.get(CONF_NOTIFY_STOP_TITLE, defaults["stop_title"]),
+                ): selector.TextSelector(),
+                vol.Required(
+                    CONF_NOTIFY_STOP_MESSAGE,
+                    default=values.get(CONF_NOTIFY_STOP_MESSAGE, defaults["stop_message"]),
+                ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
+            }),
+            errors=errors,
+            description_placeholders={
+                "placeholders": "{mode}, {soc}, {target}, {time_remaining}, {charge_end_time}"
+            },
+        )
+
+    def _save_options(self, updates: dict[str, Any]) -> FlowResult:
+        return self.async_create_entry(
+            title="",
+            data={**self._config_entry.options, **updates},
         )

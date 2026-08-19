@@ -21,9 +21,22 @@ CONF_MQTT_TOPIC_POWER_GRID     = "mqtt_topic_power_grid"
 CONF_MQTT_TOPIC_POWER_SOLAR    = "mqtt_topic_power_solar"
 CONF_MQTT_TOPIC_POWER_HOUSE    = "mqtt_topic_power_house"
 
-# Notifiche (servizio legacy configurabile, es. notify.mobile_app_famiglia)
+# Notifiche. CONF_NOTIFY_SERVICE resta supportato per migrare le installazioni
+# create prima del selettore multiplo.
 CONF_NOTIFY_SERVICE            = "notify_service"
+CONF_NOTIFY_SERVICES           = "notify_services"
+CONF_NOTIFICATIONS_ENABLED     = "notifications_enabled"
+CONF_NOTIFICATION_LANGUAGE     = "notification_language"
+CONF_NOTIFICATION_CUSTOMIZE    = "notification_customize"
+CONF_NOTIFY_START_TITLE        = "notify_start_title"
+CONF_NOTIFY_START_MESSAGE      = "notify_start_message"
+CONF_NOTIFY_STOP_TITLE         = "notify_stop_title"
+CONF_NOTIFY_STOP_MESSAGE       = "notify_stop_message"
 CONF_WALLBOX_MODE_ENTITY       = "wallbox_mode_entity"
+
+NOTIFICATION_LANGUAGE_AUTO = "auto"
+NOTIFICATION_LANGUAGE_IT   = "it"
+NOTIFICATION_LANGUAGE_EN   = "en"
 
 # Silla Prism button entities (used for auth/revoke via HA button.press)
 CONF_BUTTON_AUTHORIZE_ENTITY   = "button_authorize_entity"

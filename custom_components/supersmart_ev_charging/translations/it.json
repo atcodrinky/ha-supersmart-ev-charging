@@ -10,6 +10,7 @@
           "tariff_enabled": "Abilita ricarica in fascia off-peak (F3)",
           "mqtt_enabled": "Abilita controllo wallbox via MQTT",
           "energy_publish_enabled": "Invia telemetria energia alla Prism via MQTT",
+          "notifications_enabled": "Configura ora le notifiche di ricarica",
           "initial_user_soc_target": "Target SOC utente – usato per ricarica NOTTE F3 (%)",
           "initial_vehicle_soc_target": "Target SOC veicolo – usato per SURPLUS FV e FORZA (%)"
         }
@@ -35,6 +36,25 @@
           "tariff_offpeak_value": "Valore fascia off-peak (es. F3)"
         }
       },
+      "notifications": {
+        "title": "SuperSmart EV Charging – Notifiche",
+        "description": "Seleziona uno o più destinatari. Se un telefono non compare, termina la configurazione e aggiungilo in seguito dalle impostazioni dell'integrazione.",
+        "data": {
+          "notify_services": "Destinatari delle notifiche",
+          "notification_language": "Lingua delle notifiche",
+          "notification_customize": "Personalizza i messaggi delle notifiche"
+        }
+      },
+      "notification_messages": {
+        "title": "SuperSmart EV Charging – Messaggi notifiche",
+        "description": "Variabili disponibili: {placeholders}. Usa doppie parentesi graffe per visualizzare una parentesi letterale.",
+        "data": {
+          "notify_start_title": "Ricarica avviata – titolo",
+          "notify_start_message": "Ricarica avviata – messaggio",
+          "notify_stop_title": "Ricarica terminata – titolo",
+          "notify_stop_message": "Ricarica terminata – messaggio"
+        }
+      },
       "mqtt": {
         "title": "SuperSmart EV Charging – Configurazione MQTT wallbox",
         "description": "Topic MQTT per il controllo della wallbox. Per Silla Prism: set_mode = prism/1/command/set_mode, corrente = prism/1/command/set_current_limit. I topic authorize/revoke sono usati SOLO se non sono configurate le entità button HA.",
@@ -53,7 +73,9 @@
       }
     },
     "error": {
-      "entity_not_found": "Entità non trovata in Home Assistant"
+      "entity_not_found": "Entità non trovata in Home Assistant",
+      "notification_destination_required": "Seleziona almeno un destinatario notify.* valido",
+      "invalid_notification_template": "Un messaggio contiene parentesi non valide o una variabile non supportata"
     },
     "abort": {
       "already_configured": "SuperSmart EV Charging già configurato"
@@ -63,12 +85,58 @@
     "step": {
       "init": {
         "title": "SuperSmart EV Charging – Opzioni",
+        "menu_options": {
+          "general": "Impostazioni generali",
+          "notifications": "Notifiche"
+        }
+      },
+      "general": {
+        "title": "SuperSmart EV Charging – Impostazioni generali",
         "data": {
           "battery_capacity_kwh": "Capacità utile batteria (kWh)",
           "tariff_enabled": "Abilita ricarica off-peak F3",
           "mqtt_enabled": "Abilita MQTT",
           "energy_publish_enabled": "Invia telemetria energia alla Prism"
         }
+      },
+      "notifications": {
+        "title": "SuperSmart EV Charging – Notifiche",
+        "description": "Puoi abilitare le notifiche ora oppure lasciarle disattivate senza modificare il resto dell'integrazione.",
+        "data": {
+          "notifications_enabled": "Abilita notifiche di ricarica"
+        }
+      },
+      "notification_settings": {
+        "title": "SuperSmart EV Charging – Impostazioni notifiche",
+        "description": "Seleziona una o più azioni notify.* attualmente registrate in Home Assistant.",
+        "data": {
+          "notify_services": "Destinatari delle notifiche",
+          "notification_language": "Lingua delle notifiche",
+          "notification_customize": "Personalizza i messaggi delle notifiche"
+        }
+      },
+      "notification_messages": {
+        "title": "SuperSmart EV Charging – Messaggi notifiche",
+        "description": "Variabili disponibili: {placeholders}. Usa doppie parentesi graffe per visualizzare una parentesi letterale.",
+        "data": {
+          "notify_start_title": "Ricarica avviata – titolo",
+          "notify_start_message": "Ricarica avviata – messaggio",
+          "notify_stop_title": "Ricarica terminata – titolo",
+          "notify_stop_message": "Ricarica terminata – messaggio"
+        }
+      }
+    },
+    "error": {
+      "notification_destination_required": "Seleziona almeno un destinatario notify.* valido",
+      "invalid_notification_template": "Un messaggio contiene parentesi non valide o una variabile non supportata"
+    }
+  },
+  "selector": {
+    "notification_language": {
+      "options": {
+        "auto": "Automatica – lingua di Home Assistant",
+        "it": "Italiano",
+        "en": "Inglese"
       }
     }
   },
