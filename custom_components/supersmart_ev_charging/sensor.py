@@ -28,9 +28,9 @@ from .const import (
 )
 from .coordinator import SuperSmartEvChargingCoordinator
 
-_DEVICE_INFO = lambda entry_id: {
-    "identifiers": {(DOMAIN, entry_id)},
-    "name": "SuperSmart EV Charging",
+_DEVICE_INFO = lambda entry: {
+    "identifiers": {(DOMAIN, entry.entry_id)},
+    "name": entry.title,
     "manufacturer": "atcodrinky",
     "model": "Generic EV Energy Manager",
 }
@@ -56,7 +56,7 @@ class _Base(CoordinatorEntity[SuperSmartEvChargingCoordinator], SensorEntity):
         super().__init__(coordinator)
         self._attr_unique_id  = f"{entry.entry_id}_{suffix}"
         self._attr_translation_key = suffix
-        self._attr_device_info = _DEVICE_INFO(entry.entry_id)
+        self._attr_device_info = _DEVICE_INFO(entry)
 
     @property
     def available(self) -> bool:

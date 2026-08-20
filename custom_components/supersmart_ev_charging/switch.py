@@ -21,9 +21,9 @@ from .coordinator import SuperSmartEvChargingCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-_DEVICE_INFO = lambda entry_id: {
-    "identifiers": {(DOMAIN, entry_id)},
-    "name": "SuperSmart EV Charging",
+_DEVICE_INFO = lambda entry: {
+    "identifiers": {(DOMAIN, entry.entry_id)},
+    "name": entry.title,
     "manufacturer": "atcodrinky",
     "model": "Generic EV Energy Manager",
 }
@@ -53,7 +53,7 @@ class _Base(CoordinatorEntity[SuperSmartEvChargingCoordinator], SwitchEntity):
         super().__init__(coordinator)
         self._attr_unique_id   = f"{entry.entry_id}_{suffix}"
         self._attr_translation_key = suffix
-        self._attr_device_info = _DEVICE_INFO(entry.entry_id)
+        self._attr_device_info = _DEVICE_INFO(entry)
 
 
 class MasterStopSwitch(_Base):

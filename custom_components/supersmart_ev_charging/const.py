@@ -2,6 +2,9 @@
 
 DOMAIN = "supersmart_ev_charging"
 
+CONF_INSTANCE_NAME = "instance_name"
+ATTR_CONFIG_ENTRY_ID = "config_entry_id"
+
 # ── Config entry keys ──────────────────────────────────────────────────────────
 
 # Wallbox MQTT

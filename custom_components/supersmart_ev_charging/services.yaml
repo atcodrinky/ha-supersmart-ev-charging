@@ -1,15 +1,38 @@
 authorize_charging:
   name: Autorizza ricarica
   description: Autorizza manualmente la ricarica tramite il button configurato o MQTT.
+  fields:
+    config_entry_id:
+      name: Istanza
+      description: Istanza SuperSmart da controllare. Facoltativa con una sola auto.
+      required: false
+      selector:
+        config_entry:
+          integration: supersmart_ev_charging
 
 revoke_charging:
   name: Revoca ricarica
   description: Revoca manualmente l'autorizzazione di ricarica.
+  fields:
+    config_entry_id:
+      name: Istanza
+      description: Istanza SuperSmart da controllare. Facoltativa con una sola auto.
+      required: false
+      selector:
+        config_entry:
+          integration: supersmart_ev_charging
 
 set_charge_limit:
   name: Imposta corrente di ricarica
   description: Imposta manualmente il limite di corrente della wallbox.
   fields:
+    config_entry_id:
+      name: Istanza
+      description: Istanza SuperSmart da controllare. Facoltativa con una sola auto.
+      required: false
+      selector:
+        config_entry:
+          integration: supersmart_ev_charging
     current_a:
       name: Corrente
       description: Limite di corrente in ampere.

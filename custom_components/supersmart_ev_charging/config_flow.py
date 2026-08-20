@@ -13,6 +13,7 @@ from homeassistant.helpers import selector
 
 from .const import (
     DOMAIN,
+    CONF_INSTANCE_NAME,
     CONF_CONTRACT_POWER_W,
     CONF_BATTERY_CAPACITY_KWH,
     CONF_VEHICLE_SOC_ENTITY,
@@ -161,15 +162,32 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # ── Step 1: General settings ───────────────────────────────────────────────
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            if self._async_current_entries():
-                return self.async_abort(reason="already_configured")
-            self._data.update(user_input)
-            return await self.async_step_entities()
+            instance_name = str(user_input.get(CONF_INSTANCE_NAME, "")).strip()
+            existing_names = {
+                entry.title.casefold() for entry in self._async_current_entries()
+            }
+            if not instance_name:
+                errors[CONF_INSTANCE_NAME] = "instance_name_required"
+            elif instance_name.casefold() in existing_names:
+                errors[CONF_INSTANCE_NAME] = "instance_name_exists"
+            else:
+                user_input[CONF_INSTANCE_NAME] = instance_name
+                self._data.update(user_input)
+                return await self.async_step_entities()
+
+        entry_number = len(self._async_current_entries()) + 1
+        default_name = (
+            "SuperSmart EV Charging"
+            if entry_number == 1
+            else f"SuperSmart EV {entry_number} Charging"
+        )
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
+                vol.Required(CONF_INSTANCE_NAME, default=default_name): selector.TextSelector(),
                 vol.Required(CONF_CONTRACT_POWER_W,             default=DEFAULT_CONTRACT_POWER_W):    vol.Coerce(int),
                 vol.Required(CONF_BATTERY_CAPACITY_KWH,         default=DEFAULT_BATTERY_CAPACITY_KWH): vol.All(vol.Coerce(float), vol.Range(min=1, max=250)),
                 vol.Required(CONF_INITIAL_USER_SOC_TARGET,      default=DEFAULT_USER_SOC_TARGET):     vol.All(vol.Coerce(int), vol.Range(min=10, max=100)),
@@ -179,15 +197,33 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_ENERGY_PUBLISH_ENABLED,       default=True): bool,
                 vol.Required(CONF_NOTIFICATIONS_ENABLED,        default=False): bool,
             }),
+            errors=errors,
         )
 
     # ── Step 2: Entity selection ───────────────────────────────────────────────
     async def async_step_entities(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            self._data.update(user_input)
-            if self._data.get(CONF_NOTIFICATIONS_ENABLED):
-                return await self.async_step_notifications()
-            return await self._finish_optional_steps()
+            configured_vehicle_entities = {
+                entry.data.get(CONF_VEHICLE_SOC_ENTITY)
+                for entry in self._async_current_entries()
+            }
+            configured_wallbox_entities = {
+                entry.data.get(CONF_WALLBOX_STATE_ENTITY)
+                for entry in self._async_current_entries()
+            }
+            if (
+                user_input.get(CONF_VEHICLE_SOC_ENTITY)
+                in configured_vehicle_entities
+                or user_input.get(CONF_WALLBOX_STATE_ENTITY)
+                in configured_wallbox_entities
+            ):
+                errors["base"] = "vehicle_or_wallbox_already_configured"
+            else:
+                self._data.update(user_input)
+                if self._data.get(CONF_NOTIFICATIONS_ENABLED):
+                    return await self.async_step_notifications()
+                return await self._finish_optional_steps()
 
         schema_fields: dict = {
             vol.Required(CONF_VEHICLE_SOC_ENTITY): selector.EntitySelector(
@@ -248,6 +284,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="entities",
             data_schema=vol.Schema(schema_fields),
+            errors=errors,
         )
 
     # ── Optional notifications ────────────────────────────────────────────────
@@ -328,7 +365,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }),
             errors=errors,
             description_placeholders={
-                "placeholders": "{mode}, {soc}, {target}, {time_remaining}, {charge_end_time}"
+                "placeholders": "{instance}, {mode}, {soc}, {target}, {time_remaining}, {charge_end_time}"
             },
         )
 
@@ -361,7 +398,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def _create_entry(self) -> FlowResult:
         return self.async_create_entry(
-            title="SuperSmart EV Charging",
+            title=self._data[CONF_INSTANCE_NAME],
             data=self._data,
         )
 
@@ -423,34 +460,19 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         d = {**self._config_entry.data, **self._config_entry.options}
         legacy_enabled = bool(d.get(CONF_NOTIFY_SERVICE))
-        if user_input is not None:
-            self._pending.update(user_input)
-            if not user_input[CONF_NOTIFICATIONS_ENABLED]:
-                return self._save_options(self._pending)
-            return await self.async_step_notification_settings()
-
-        return self.async_show_form(
-            step_id="notifications",
-            data_schema=vol.Schema({
-                vol.Required(
-                    CONF_NOTIFICATIONS_ENABLED,
-                    default=d.get(CONF_NOTIFICATIONS_ENABLED, legacy_enabled),
-                ): selector.BooleanSelector(),
-            }),
-        )
-
-    async def async_step_notification_settings(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        d = {**self._config_entry.data, **self._config_entry.options, **self._pending}
         errors: dict[str, str] = {}
         if user_input is not None:
-            services = _normalize_notify_services(user_input.get(CONF_NOTIFY_SERVICES))
-            if not _valid_notify_services(services):
+            enabled = bool(user_input[CONF_NOTIFICATIONS_ENABLED])
+            services = _normalize_notify_services(
+                user_input.get(CONF_NOTIFY_SERVICES)
+            )
+            if enabled and not _valid_notify_services(services):
                 errors["base"] = "notification_destination_required"
             else:
                 user_input[CONF_NOTIFY_SERVICES] = services
                 self._pending.update(user_input)
+                if not enabled:
+                    return self._save_options(self._pending)
                 if user_input.get(CONF_NOTIFICATION_CUSTOMIZE):
                     return await self.async_step_notification_messages()
                 return self._save_options(self._pending)
@@ -459,10 +481,15 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
         selected_services = _normalize_notify_services(
             d.get(CONF_NOTIFY_SERVICES, legacy)
         )
+
         return self.async_show_form(
-            step_id="notification_settings",
+            step_id="notifications",
             data_schema=vol.Schema({
                 vol.Required(
+                    CONF_NOTIFICATIONS_ENABLED,
+                    default=d.get(CONF_NOTIFICATIONS_ENABLED, legacy_enabled),
+                ): selector.BooleanSelector(),
+                vol.Optional(
                     CONF_NOTIFY_SERVICES,
                     default=selected_services,
                 ): _notify_service_selector(self.hass),
@@ -518,7 +545,7 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
             }),
             errors=errors,
             description_placeholders={
-                "placeholders": "{mode}, {soc}, {target}, {time_remaining}, {charge_end_time}"
+                "placeholders": "{instance}, {mode}, {soc}, {target}, {time_remaining}, {charge_end_time}"
             },
         )
 

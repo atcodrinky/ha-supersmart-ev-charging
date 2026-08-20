@@ -139,7 +139,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         super().__init__(
             hass,
             _LOGGER,
-            name=DOMAIN,
+            name=entry.title,
         )
         self.entry = entry
         d = {**entry.data, **entry.options}
@@ -1136,6 +1136,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         )
         labels = defaults["modes"]
         return {
+            "instance": self.entry.title,
             "mode": labels.get(mode, labels["sconosciuta"]),
             "soc": soc,
             "target": target,

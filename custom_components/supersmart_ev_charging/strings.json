@@ -3,8 +3,9 @@
     "step": {
       "user": {
         "title": "SuperSmart EV Charging – Impostazioni generali",
-        "description": "Configura il tetto operativo di potenza totale (casa + wallbox), batteria e target SOC. La potenza reale può restare inferiore per tensione, altri limiti della wallbox o richiesta dell'auto. I target SOC possono essere modificati in seguito dalle entità number.",
+        "description": "Configura il nome dell'istanza, il tetto operativo di potenza totale (casa + wallbox), batteria e target SOC. Per più auto usa nomi come ‘SuperSmart Elroq Charging’ e ‘SuperSmart Enyaq Charging’: Home Assistant li userà anche come base degli ID entità.",
         "data": {
+          "instance_name": "Nome istanza e dispositivo",
           "contract_power_w": "Limite operativo potenza totale – casa + wallbox (W)",
           "battery_capacity_kwh": "Capacità utile batteria veicolo (kWh)",
           "tariff_enabled": "Abilita ricarica in fascia off-peak (F3)",
@@ -13,6 +14,9 @@
           "notifications_enabled": "Configura ora le notifiche di ricarica",
           "initial_user_soc_target": "Target SOC utente – usato per ricarica NOTTE F3 (%)",
           "initial_vehicle_soc_target": "Target SOC veicolo – usato per SURPLUS FV e FORZA (%)"
+        },
+        "data_description": {
+          "instance_name": "Schema consigliato: SuperSmart NOME_AUTO Charging. Esempio: SuperSmart Elroq Charging → sensor.supersmart_elroq_charging_…"
         }
       },
       "entities": {
@@ -31,7 +35,6 @@
           "wallbox_mode_entity": "Modo porta wallbox – opzionale, usato nelle notifiche",
           "button_authorize_entity": "Button autorizza ricarica – Silla Prism (es. button.silla_prism_autorizza_ricarica)",
           "button_revoke_entity": "Button revoca autorizzazione – Silla Prism (es. button.silla_prism_revoca_autorizzazione_ricarica)",
-          "notify_service": "Servizio notifiche opzionale (es. notify.mobile_app_famiglia)",
           "tariff_entity": "* Sensore fascia tariffaria (obbligatorio se F3 è abilitata)",
           "tariff_offpeak_value": "Valore fascia off-peak (es. F3)"
         }
@@ -74,11 +77,11 @@
     },
     "error": {
       "entity_not_found": "Entità non trovata in Home Assistant",
+      "instance_name_required": "Inserisci un nome per questa auto",
+      "instance_name_exists": "Esiste già un'istanza con questo nome: scegline uno diverso",
+      "vehicle_or_wallbox_already_configured": "Il sensore SOC del veicolo o lo stato della wallbox appartiene già a un'altra istanza",
       "notification_destination_required": "Seleziona almeno un destinatario notify.* valido",
       "invalid_notification_template": "Un messaggio contiene parentesi non valide o una variabile non supportata"
-    },
-    "abort": {
-      "already_configured": "SuperSmart EV Charging già configurato"
     }
   },
   "options": {
@@ -101,15 +104,9 @@
       },
       "notifications": {
         "title": "SuperSmart EV Charging – Notifiche",
-        "description": "Puoi abilitare le notifiche ora oppure lasciarle disattivate senza modificare il resto dell'integrazione.",
+        "description": "Abilita o disabilita le notifiche e modifica direttamente destinatari e lingua. Se attivi la personalizzazione, dopo Invia potrai modificare titoli e messaggi.",
         "data": {
-          "notifications_enabled": "Abilita notifiche di ricarica"
-        }
-      },
-      "notification_settings": {
-        "title": "SuperSmart EV Charging – Impostazioni notifiche",
-        "description": "Seleziona una o più azioni notify.* attualmente registrate in Home Assistant.",
-        "data": {
+          "notifications_enabled": "Abilita notifiche di ricarica",
           "notify_services": "Destinatari delle notifiche",
           "notification_language": "Lingua delle notifiche",
           "notification_customize": "Personalizza i messaggi delle notifiche"
