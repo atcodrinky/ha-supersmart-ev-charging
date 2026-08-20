@@ -70,6 +70,7 @@ equivalent entities and commands.
 
 | Field | Description | Initial value |
 |---|---|---|
+| Instance and device name | Vehicle name also used as the basis for entity IDs | SuperSmart EV Charging |
 | Total operating power limit | Desired overall ceiling for the house and wallbox | 5700 W |
 | Usable battery capacity | Actual usable capacity, adjustable over time | 60 kWh |
 | User SOC target | Target used by off-peak charging | 50% |
@@ -112,9 +113,13 @@ When enabled in the first step, one or more `notify.*` actions can be selected
 from a dropdown. Messages can automatically follow the Home Assistant language
 or explicitly use Italian or English. Titles and messages can be customized
 with `{mode}`, `{soc}`, `{target}`, `{time_remaining}` and `{charge_end_time}`.
+The `{instance}` placeholder identifies the vehicle and is included in the
+default titles.
 
 Notifications can also be enabled, disabled or changed later from the
-integration gear icon without recreating the device or its entities.
+integration gear icon. The same page directly shows enablement, recipients and
+language; when customization is enabled, the next step lets the user edit titles
+and messages. The device and its entities do not need to be recreated.
 
 ### Final step — MQTT commands
 
@@ -142,8 +147,26 @@ Charging device containing all related entities. No manual `input_boolean`,
 `input_number`, `input_select` or `input_datetime` helpers are required.
 
 Display names are translated into the Home Assistant backend language when the
-entities are first created. Entity IDs may therefore vary: check the actual IDs
-under **Settings → Devices & services → Entities**.
+entities are first created. The instance name is used as the basis for entity
+IDs: `SuperSmart Elroq Charging` will normally generate IDs prefixed with
+`supersmart_elroq_charging_`. IDs may still vary: check the actual values under
+**Settings → Devices & services → Entities**.
+
+### Multiple vehicles and wallboxes
+
+Multiple integration instances can be added. Use the pattern **SuperSmart
+VEHICLE_NAME Charging** to distinguish them, for example `SuperSmart Elroq
+Charging` and `SuperSmart Enyaq Charging`. Each instance creates a separate
+device, entities, persisted state, and control logic.
+
+The vehicle SOC sensor and wallbox state sensor cannot be reused by another
+instance: two controllers acting on the same vehicle or wallbox would send
+competing commands. Shared sensors such as grid power, PV production, and tariff
+band can be reused.
+
+Home Assistant preserves entity IDs already stored in its registry: upgrading
+does not rename the existing instance's IDs. The new naming pattern is applied
+automatically to instances created with v1.2.0 or later.
 
 ### Sensors
 
@@ -189,6 +212,10 @@ vehicle demand.
 
 ### Actions
 
+With one instance, `config_entry_id` is optional. With multiple vehicles, select
+the instance in the visual action editor; Home Assistant will add its
+`config_entry_id` to the YAML.
+
 ```yaml
 action: supersmart_ev_charging.authorize_charging
 ```
@@ -200,6 +227,7 @@ action: supersmart_ev_charging.revoke_charging
 ```yaml
 action: supersmart_ev_charging.set_charge_limit
 data:
+  config_entry_id: YOUR_CONFIG_ENTRY_ID
   current_a: 10
 ```
 

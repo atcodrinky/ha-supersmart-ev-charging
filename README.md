@@ -71,6 +71,7 @@ comandi equivalenti.
 
 | Campo | Descrizione | Valore iniziale |
 |---|---|---|
+| Nome istanza e dispositivo | Nome dell'auto usato anche come base per gli ID entità | SuperSmart EV Charging |
 | Limite operativo potenza totale | Tetto complessivo desiderato per casa e wallbox | 5700 W |
 | Capacità utile batteria | Capacità realmente utilizzabile, modificabile nel tempo | 60 kWh |
 | Target SOC utente | Obiettivo usato dalla ricarica notturna | 50% |
@@ -113,10 +114,13 @@ Se abilitate nel primo passaggio, è possibile scegliere da un menu uno o più
 servizi `notify.*`, usare automaticamente la lingua di Home Assistant oppure
 selezionare italiano o inglese. Titoli e messaggi possono essere personalizzati
 con `{mode}`, `{soc}`, `{target}`, `{time_remaining}` e `{charge_end_time}`.
+La variabile `{instance}` identifica l'auto e compare nei titoli predefiniti.
 
 Le notifiche possono anche essere abilitate, disabilitate o modificate in
-seguito dall'icona dell'ingranaggio dell'integrazione, senza ricreare il
-dispositivo o le entità.
+seguito dall'icona dell'ingranaggio dell'integrazione. La stessa pagina mostra
+direttamente attivazione, destinatari e lingua; abilitando la personalizzazione,
+il passaggio successivo permette di modificare titoli e messaggi. Non è
+necessario ricreare il dispositivo o le entità.
 
 ### Passaggio finale — Comandi MQTT
 
@@ -145,8 +149,26 @@ manualmente helper `input_boolean`, `input_number`, `input_select` o
 `input_datetime`.
 
 I nomi visualizzati vengono tradotti nella lingua del backend Home Assistant al
-momento della prima creazione. Gli entity ID possono quindi variare: verifica
-quelli effettivi in **Impostazioni → Dispositivi e servizi → Entità**.
+momento della prima creazione. Il nome dell'istanza viene usato come base per
+gli entity ID: `SuperSmart Elroq Charging` genera normalmente ID con prefisso
+`supersmart_elroq_charging_`. Gli ID possono comunque variare: verifica quelli
+effettivi in **Impostazioni → Dispositivi e servizi → Entità**.
+
+### Più auto e wallbox
+
+È possibile aggiungere più istanze dell'integrazione. Per distinguerle usa lo
+schema **SuperSmart NOME_AUTO Charging**, per esempio `SuperSmart Elroq Charging`
+e `SuperSmart Enyaq Charging`. Ogni istanza crea un dispositivo, entità, stato
+persistente e logica di controllo separati.
+
+Il sensore SOC del veicolo e il sensore di stato della wallbox non possono essere
+riutilizzati in un'altra istanza: due controller sulla stessa auto o wallbox
+invierebbero comandi concorrenti. Sensori comuni come rete, fotovoltaico e fascia
+tariffaria possono invece essere condivisi.
+
+Home Assistant conserva gli entity ID già registrati: l'aggiornamento non
+rinomina quelli dell'istanza esistente. Il nuovo schema di nome viene applicato
+automaticamente alle istanze create dalla v1.2.0 in poi.
 
 ### Sensori
 
@@ -192,6 +214,10 @@ interni della wallbox o la corrente richiesta dall'auto.
 
 ### Azioni
 
+Con una sola istanza il campo `config_entry_id` è facoltativo. Con più auto va
+selezionata l'istanza nell'editor visuale dell'azione; Home Assistant aggiunge il
+relativo `config_entry_id` allo YAML.
+
 ```yaml
 action: supersmart_ev_charging.authorize_charging
 ```
@@ -203,6 +229,7 @@ action: supersmart_ev_charging.revoke_charging
 ```yaml
 action: supersmart_ev_charging.set_charge_limit
 data:
+  config_entry_id: YOUR_CONFIG_ENTRY_ID
   current_a: 10
 ```
 

@@ -9,10 +9,17 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import Event, HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 
-from .const import DOMAIN, DEFAULT_MIN_CHARGE_CURRENT_A, DEFAULT_MAX_LOAD_CURRENT_A
+from .const import (
+    ATTR_CONFIG_ENTRY_ID,
+    DOMAIN,
+    DEFAULT_MIN_CHARGE_CURRENT_A,
+    DEFAULT_MAX_LOAD_CURRENT_A,
+)
 from .coordinator import SuperSmartEvChargingCoordinator
+from .service_helpers import resolve_service_instance
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,6 +28,70 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
     Platform.NUMBER,
 ]
+
+SERVICE_NAMES = ("authorize_charging", "revoke_charging", "set_charge_limit")
+
+
+def _service_coordinator(
+    hass: HomeAssistant, call: ServiceCall
+) -> SuperSmartEvChargingCoordinator:
+    """Return the selected coordinator or raise a clear action error."""
+    try:
+        return resolve_service_instance(
+            hass.data.get(DOMAIN, {}), call.data.get(ATTR_CONFIG_ENTRY_ID)
+        )
+    except ValueError as err:
+        raise ServiceValidationError(
+            "Select a SuperSmart EV Charging instance when more than one is configured"
+        ) from err
+
+
+def _register_services(hass: HomeAssistant) -> None:
+    """Register domain actions once and route calls to the selected instance."""
+    if hass.services.has_service(DOMAIN, "authorize_charging"):
+        return
+
+    async def svc_authorize(call: ServiceCall) -> None:
+        await _service_coordinator(hass, call).authorize_charging()
+
+    async def svc_revoke(call: ServiceCall) -> None:
+        await _service_coordinator(hass, call).revoke_charging()
+
+    async def svc_set_limit(call: ServiceCall) -> None:
+        await _service_coordinator(hass, call).set_current_limit(
+            call.data.get("current_a", DEFAULT_MIN_CHARGE_CURRENT_A)
+        )
+
+    instance_schema = {
+        vol.Optional(ATTR_CONFIG_ENTRY_ID): str,
+    }
+    hass.services.async_register(
+        DOMAIN,
+        "authorize_charging",
+        svc_authorize,
+        schema=vol.Schema(instance_schema),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "revoke_charging",
+        svc_revoke,
+        schema=vol.Schema(instance_schema),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "set_charge_limit",
+        svc_set_limit,
+        schema=vol.Schema({
+            **instance_schema,
+            vol.Required("current_a"): vol.All(
+                vol.Coerce(float),
+                vol.Range(
+                    min=DEFAULT_MIN_CHARGE_CURRENT_A,
+                    max=DEFAULT_MAX_LOAD_CURRENT_A,
+                ),
+            ),
+        }),
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -34,29 +105,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # ── Services
-    async def svc_authorize(call: ServiceCall) -> None:
-        await coordinator.authorize_charging()
-
-    async def svc_revoke(call: ServiceCall) -> None:
-        await coordinator.revoke_charging()
-
-    async def svc_set_limit(call: ServiceCall) -> None:
-        await coordinator.set_current_limit(call.data.get("current_a", DEFAULT_MIN_CHARGE_CURRENT_A))
-
-    hass.services.async_register(DOMAIN, "authorize_charging", svc_authorize)
-    hass.services.async_register(DOMAIN, "revoke_charging",    svc_revoke)
-    hass.services.async_register(
-        DOMAIN,
-        "set_charge_limit",
-        svc_set_limit,
-        schema=vol.Schema({
-            vol.Required("current_a"): vol.All(
-                vol.Coerce(float),
-                vol.Range(min=DEFAULT_MIN_CHARGE_CURRENT_A, max=DEFAULT_MAX_LOAD_CURRENT_A),
-            )
-        }),
-    )
+    _register_services(hass)
 
     # ── Background charging loop (every 30 s)
     entry.async_on_unload(
@@ -113,9 +162,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_shutdown()
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id)
-        for service in ("authorize_charging", "revoke_charging", "set_charge_limit"):
-            if hass.services.has_service(DOMAIN, service):
-                hass.services.async_remove(DOMAIN, service)
+        if not hass.data[DOMAIN]:
+            for service in SERVICE_NAMES:
+                if hass.services.has_service(DOMAIN, service):
+                    hass.services.async_remove(DOMAIN, service)
     return unload_ok
 
 

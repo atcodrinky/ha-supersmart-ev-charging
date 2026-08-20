@@ -50,18 +50,23 @@ class NotificationTests(unittest.TestCase):
         english = notifications.notification_defaults("auto", "en")
         self.assertIn("Ricarica avviata", italian["start_title"])
         self.assertIn("Charging started", english["start_title"])
+        self.assertIn("{instance}", italian["start_title"])
 
     def test_custom_template_renders_supported_values(self) -> None:
         rendered = notifications.render_notification_template(
-            "{mode}: {soc}% → {target}% alle {charge_end_time}",
+            "{instance} · {mode}: {soc}% → {target}% alle {charge_end_time}",
             {
+                "instance": "SuperSmart Elroq Charging",
                 "mode": "Surplus FV",
                 "soc": 42,
                 "target": 80,
                 "charge_end_time": "18:30",
             },
         )
-        self.assertEqual(rendered, "Surplus FV: 42% → 80% alle 18:30")
+        self.assertEqual(
+            rendered,
+            "SuperSmart Elroq Charging · Surplus FV: 42% → 80% alle 18:30",
+        )
 
     def test_custom_template_rejects_unknown_or_malformed_fields(self) -> None:
         with self.assertRaises(ValueError):

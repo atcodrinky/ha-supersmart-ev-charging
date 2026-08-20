@@ -11,6 +11,7 @@ from .const import (
 )
 
 ALLOWED_TEMPLATE_FIELDS = {
+    "instance",
     "mode",
     "soc",
     "target",
@@ -20,9 +21,9 @@ ALLOWED_TEMPLATE_FIELDS = {
 
 DEFAULT_NOTIFICATION_TEXTS: dict[str, dict[str, Any]] = {
     NOTIFICATION_LANGUAGE_IT: {
-        "start_title": "🚗 Ricarica avviata 🚗",
+        "start_title": "🚗 {instance} – Ricarica avviata 🚗",
         "start_message": "Modalità: {mode}\nSOC: {soc}%\nTarget: {target}%",
-        "stop_title": "🏁 Ricarica terminata 🏁",
+        "stop_title": "🏁 {instance} – Ricarica terminata 🏁",
         "stop_message": "Modalità: {mode}\nSOC finale: {soc}%",
         "modes": {
             "fv_surplus": "Surplus FV ☀️",
@@ -32,9 +33,9 @@ DEFAULT_NOTIFICATION_TEXTS: dict[str, dict[str, Any]] = {
         },
     },
     NOTIFICATION_LANGUAGE_EN: {
-        "start_title": "🚗 Charging started 🚗",
+        "start_title": "🚗 {instance} – Charging started 🚗",
         "start_message": "Mode: {mode}\nSOC: {soc}%\nTarget: {target}%",
-        "stop_title": "🏁 Charging completed 🏁",
+        "stop_title": "🏁 {instance} – Charging completed 🏁",
         "stop_message": "Mode: {mode}\nFinal SOC: {soc}%",
         "modes": {
             "fv_surplus": "PV surplus ☀️",
