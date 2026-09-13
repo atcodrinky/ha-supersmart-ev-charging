@@ -12,6 +12,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN,
+    STOP_REASON_MASTER_STOP,
+    STOP_REASON_MANUAL,
     SWITCH_MASTER_STOP,
     SWITCH_FORCE_CHARGE,
     SWITCH_SOLAR_CONTROLLER,
@@ -76,6 +78,7 @@ class MasterStopSwitch(_Base):
         self.coordinator.master_stop    = True
         self.coordinator.force_charge   = False
         self.coordinator.solar_controller_active = False
+        self.coordinator.last_stop_reason = STOP_REASON_MASTER_STOP
         # Invia immediatamente set_mode=3 + revoca (replica la sequenza YAML)
         await self.coordinator._set_mode(self.coordinator._payload_pause)
         import asyncio; await asyncio.sleep(2)
@@ -174,6 +177,7 @@ class NightChargingSwitch(_Base):
     async def async_turn_off(self, **kwargs: Any) -> None:
         self.coordinator.night_charging_enabled = False
         if self.coordinator.charging_mode == "night":
+            self.coordinator.last_stop_reason = STOP_REASON_MANUAL
             await self.coordinator._set_mode(self.coordinator._payload_pause)
             await self.coordinator._revoke()
             self.coordinator.charging_mode = "idle"

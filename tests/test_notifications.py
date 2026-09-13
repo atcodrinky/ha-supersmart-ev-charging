@@ -51,6 +51,14 @@ class NotificationTests(unittest.TestCase):
         self.assertIn("Ricarica avviata", italian["start_title"])
         self.assertIn("Charging started", english["start_title"])
         self.assertIn("{instance}", italian["start_title"])
+        self.assertEqual(
+            italian["stop_reasons"]["manual_stop"],
+            "Ricarica fermata manualmente",
+        )
+        self.assertEqual(
+            english["stop_reasons"]["manual_stop"],
+            "Charging stopped manually",
+        )
 
     def test_custom_template_renders_supported_values(self) -> None:
         rendered = notifications.render_notification_template(

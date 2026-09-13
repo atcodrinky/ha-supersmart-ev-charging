@@ -14,6 +14,8 @@ from homeassistant.helpers import selector
 from .const import (
     DOMAIN,
     CONF_INSTANCE_NAME,
+    CONF_INITIAL_USER_SOC_TARGET,
+    CONF_INITIAL_VEHICLE_SOC_TARGET,
     CONF_CONTRACT_POWER_W,
     CONF_BATTERY_CAPACITY_KWH,
     CONF_VEHICLE_SOC_ENTITY,
@@ -51,6 +53,11 @@ from .const import (
     CONF_NOTIFY_START_MESSAGE,
     CONF_NOTIFY_STOP_TITLE,
     CONF_NOTIFY_STOP_MESSAGE,
+    CONF_LIVE_ACTIVITY_ENABLED,
+    CONF_LIVE_ACTIVITY_SERVICES,
+    CONF_LIVE_ACTIVITY_TITLE,
+    CONF_LIVE_ACTIVITY_DASHBOARD_URL,
+    CONF_LIVE_ACTIVITY_SOC_STEP,
     CONF_WALLBOX_MODE_ENTITY,
     DEFAULT_CONTRACT_POWER_W,
     DEFAULT_BATTERY_CAPACITY_KWH,
@@ -67,6 +74,7 @@ from .const import (
     DEFAULT_TARIFF_OFFPEAK_VALUE,
     DEFAULT_USER_SOC_TARGET,
     DEFAULT_VEHICLE_SOC_TARGET,
+    DEFAULT_LIVE_ACTIVITY_SOC_STEP,
     NOTIFICATION_LANGUAGE_AUTO,
     NOTIFICATION_LANGUAGE_EN,
     NOTIFICATION_LANGUAGE_IT,
@@ -74,10 +82,6 @@ from .const import (
 from .notifications import notification_defaults, validate_notification_template
 
 _LOGGER = logging.getLogger(__name__)
-
-CONF_INITIAL_USER_SOC_TARGET    = "initial_user_soc_target"
-CONF_INITIAL_VEHICLE_SOC_TARGET = "initial_vehicle_soc_target"
-
 
 def _available_notify_services(hass) -> list[str]:
     """Return current notify actions for a dropdown, excluding the generic action."""
@@ -114,6 +118,45 @@ def _notify_service_selector(hass) -> selector.SelectSelector:
             multiple=True,
             custom_value=True,
             mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _available_mobile_app_services(hass) -> list[str]:
+    """Return direct Companion App notify actions."""
+    return [
+        service
+        for service in _available_notify_services(hass)
+        if service.startswith("notify.mobile_app_")
+    ]
+
+
+def _mobile_app_service_selector(hass) -> selector.SelectSelector:
+    """Build the multi-select used by Live Activity / Live Update."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=_available_mobile_app_services(hass),
+            multiple=True,
+            custom_value=False,
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _valid_mobile_app_services(services: list[str]) -> bool:
+    return bool(services) and all(
+        service.startswith("notify.mobile_app_") and service.count(".") == 1
+        for service in services
+    )
+
+
+def _live_soc_step_selector() -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=5,
+            max=25,
+            step=5,
+            mode=selector.NumberSelectorMode.BOX,
         )
     )
 
@@ -196,6 +239,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_MQTT_ENABLED,                 default=True): bool,
                 vol.Required(CONF_ENERGY_PUBLISH_ENABLED,       default=True): bool,
                 vol.Required(CONF_NOTIFICATIONS_ENABLED,        default=False): bool,
+                vol.Required(CONF_LIVE_ACTIVITY_ENABLED,        default=False): bool,
             }),
             errors=errors,
         )
@@ -223,6 +267,8 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._data.update(user_input)
                 if self._data.get(CONF_NOTIFICATIONS_ENABLED):
                     return await self.async_step_notifications()
+                if self._data.get(CONF_LIVE_ACTIVITY_ENABLED):
+                    return await self.async_step_live_activity()
                 return await self._finish_optional_steps()
 
         schema_fields: dict = {
@@ -301,7 +347,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._data.update(user_input)
                 if user_input.get(CONF_NOTIFICATION_CUSTOMIZE):
                     return await self.async_step_notification_messages()
-                return await self._finish_optional_steps()
+                return await self._finish_notification_steps()
 
         legacy = self._data.get(CONF_NOTIFY_SERVICE, "")
         selected_services = _normalize_notify_services(
@@ -335,7 +381,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             if _validate_message_fields(user_input):
                 self._data.update(user_input)
-                return await self._finish_optional_steps()
+                return await self._finish_notification_steps()
             errors["base"] = "invalid_notification_template"
 
         defaults = notification_defaults(
@@ -367,6 +413,65 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "placeholders": "{instance}, {mode}, {soc}, {target}, {time_remaining}, {charge_end_time}"
             },
+        )
+
+    async def _finish_notification_steps(self) -> FlowResult:
+        if self._data.get(CONF_LIVE_ACTIVITY_ENABLED):
+            return await self.async_step_live_activity()
+        return await self._finish_optional_steps()
+
+    async def async_step_live_activity(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure Companion App Live Activity / Live Update."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            services = _normalize_notify_services(
+                user_input.get(CONF_LIVE_ACTIVITY_SERVICES)
+            )
+            if not _valid_mobile_app_services(services):
+                errors["base"] = "live_activity_destination_required"
+            else:
+                user_input[CONF_LIVE_ACTIVITY_SERVICES] = services
+                user_input[CONF_LIVE_ACTIVITY_TITLE] = (
+                    str(user_input.get(CONF_LIVE_ACTIVITY_TITLE, "")).strip()
+                    or self._data[CONF_INSTANCE_NAME]
+                )
+                user_input[CONF_LIVE_ACTIVITY_DASHBOARD_URL] = str(
+                    user_input.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, "")
+                ).strip()
+                self._data.update(user_input)
+                return await self._finish_optional_steps()
+
+        return self.async_show_form(
+            step_id="live_activity",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_SERVICES,
+                    default=_normalize_notify_services(
+                        self._data.get(CONF_LIVE_ACTIVITY_SERVICES)
+                    ),
+                ): _mobile_app_service_selector(self.hass),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_TITLE,
+                    default=self._data.get(
+                        CONF_LIVE_ACTIVITY_TITLE,
+                        self._data.get(CONF_INSTANCE_NAME, "SuperSmart EV Charging"),
+                    ),
+                ): selector.TextSelector(),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_SOC_STEP,
+                    default=self._data.get(
+                        CONF_LIVE_ACTIVITY_SOC_STEP,
+                        DEFAULT_LIVE_ACTIVITY_SOC_STEP,
+                    ),
+                ): _live_soc_step_selector(),
+                vol.Optional(
+                    CONF_LIVE_ACTIVITY_DASHBOARD_URL,
+                    default=self._data.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, ""),
+                ): selector.TextSelector(),
+            }),
+            errors=errors,
         )
 
     async def _finish_optional_steps(self) -> FlowResult:
@@ -412,7 +517,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
-    """Options flow – edit key parameters post-setup."""
+    """Transactional options flow with an explicit Save & Close action."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         # Compatibile sia con HA recente sia con le versioni in cui la config
@@ -423,16 +528,31 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         return self.async_show_menu(
             step_id="init",
-            menu_options=["general", "notifications"],
+            menu_options=[
+                "general",
+                "notifications",
+                "live_activity",
+                "save_and_close",
+            ],
+            description_placeholders={"instance": self._config_entry.title},
         )
+
+    def _values(self) -> dict[str, Any]:
+        """Return config data overlaid with saved and in-flow option values."""
+        return {
+            **self._config_entry.data,
+            **self._config_entry.options,
+            **self._pending,
+        }
 
     async def async_step_general(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         if user_input is not None:
-            return self._save_options(user_input)
+            self._pending.update(user_input)
+            return await self.async_step_init()
 
-        d = {**self._config_entry.data, **self._config_entry.options}
+        d = self._values()
         return self.async_show_form(
             step_id="general",
             data_schema=vol.Schema({
@@ -440,6 +560,12 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                     CONF_BATTERY_CAPACITY_KWH,
                     default=d.get(CONF_BATTERY_CAPACITY_KWH, DEFAULT_BATTERY_CAPACITY_KWH),
                 ): vol.All(vol.Coerce(float), vol.Range(min=1, max=250)),
+                vol.Required(
+                    CONF_INITIAL_USER_SOC_TARGET,
+                    default=d.get(
+                        CONF_INITIAL_USER_SOC_TARGET, DEFAULT_USER_SOC_TARGET
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=10, max=100)),
                 vol.Required(
                     CONF_TARIFF_ENABLED,
                     default=d.get(CONF_TARIFF_ENABLED, True),
@@ -458,7 +584,7 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
     async def async_step_notifications(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        d = {**self._config_entry.data, **self._config_entry.options}
+        d = self._values()
         legacy_enabled = bool(d.get(CONF_NOTIFY_SERVICE))
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -472,10 +598,10 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                 user_input[CONF_NOTIFY_SERVICES] = services
                 self._pending.update(user_input)
                 if not enabled:
-                    return self._save_options(self._pending)
+                    return await self.async_step_init()
                 if user_input.get(CONF_NOTIFICATION_CUSTOMIZE):
                     return await self.async_step_notification_messages()
-                return self._save_options(self._pending)
+                return await self.async_step_init()
 
         legacy = d.get(CONF_NOTIFY_SERVICE, "")
         selected_services = _normalize_notify_services(
@@ -510,12 +636,12 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
     async def async_step_notification_messages(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        d = {**self._config_entry.data, **self._config_entry.options, **self._pending}
+        d = self._values()
         errors: dict[str, str] = {}
         if user_input is not None:
             if _validate_message_fields(user_input):
                 self._pending.update(user_input)
-                return self._save_options(self._pending)
+                return await self.async_step_init()
             errors["base"] = "invalid_notification_template"
 
         defaults = notification_defaults(
@@ -548,6 +674,70 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                 "placeholders": "{instance}, {mode}, {soc}, {target}, {time_remaining}, {charge_end_time}"
             },
         )
+
+    async def async_step_live_activity(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Edit Live Activity / Live Update options."""
+        d = self._values()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            enabled = bool(user_input[CONF_LIVE_ACTIVITY_ENABLED])
+            services = _normalize_notify_services(
+                user_input.get(CONF_LIVE_ACTIVITY_SERVICES)
+            )
+            if enabled and not _valid_mobile_app_services(services):
+                errors["base"] = "live_activity_destination_required"
+            else:
+                user_input[CONF_LIVE_ACTIVITY_SERVICES] = services
+                user_input[CONF_LIVE_ACTIVITY_TITLE] = (
+                    str(user_input.get(CONF_LIVE_ACTIVITY_TITLE, "")).strip()
+                    or self._config_entry.title
+                )
+                user_input[CONF_LIVE_ACTIVITY_DASHBOARD_URL] = str(
+                    user_input.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, "")
+                ).strip()
+                self._pending.update(user_input)
+                return await self.async_step_init()
+
+        return self.async_show_form(
+            step_id="live_activity",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_ENABLED,
+                    default=d.get(CONF_LIVE_ACTIVITY_ENABLED, False),
+                ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_LIVE_ACTIVITY_SERVICES,
+                    default=_normalize_notify_services(
+                        d.get(CONF_LIVE_ACTIVITY_SERVICES)
+                    ),
+                ): _mobile_app_service_selector(self.hass),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_TITLE,
+                    default=d.get(CONF_LIVE_ACTIVITY_TITLE, self._config_entry.title),
+                ): selector.TextSelector(),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_SOC_STEP,
+                    default=d.get(
+                        CONF_LIVE_ACTIVITY_SOC_STEP,
+                        DEFAULT_LIVE_ACTIVITY_SOC_STEP,
+                    ),
+                ): _live_soc_step_selector(),
+                vol.Optional(
+                    CONF_LIVE_ACTIVITY_DASHBOARD_URL,
+                    default=d.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, ""),
+                ): selector.TextSelector(),
+            }),
+            errors=errors,
+            description_placeholders={"instance": self._config_entry.title},
+        )
+
+    async def async_step_save_and_close(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Persist the draft once and finish the options flow."""
+        return self._save_options(self._pending)
 
     def _save_options(self, updates: dict[str, Any]) -> FlowResult:
         return self.async_create_entry(

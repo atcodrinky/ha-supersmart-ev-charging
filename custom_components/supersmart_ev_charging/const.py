@@ -3,6 +3,8 @@
 DOMAIN = "supersmart_ev_charging"
 
 CONF_INSTANCE_NAME = "instance_name"
+CONF_INITIAL_USER_SOC_TARGET = "initial_user_soc_target"
+CONF_INITIAL_VEHICLE_SOC_TARGET = "initial_vehicle_soc_target"
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
 
 # ── Config entry keys ──────────────────────────────────────────────────────────
@@ -36,6 +38,22 @@ CONF_NOTIFY_START_MESSAGE      = "notify_start_message"
 CONF_NOTIFY_STOP_TITLE         = "notify_stop_title"
 CONF_NOTIFY_STOP_MESSAGE       = "notify_stop_message"
 CONF_WALLBOX_MODE_ENTITY       = "wallbox_mode_entity"
+
+# Companion App Live Activity (iOS) / Live Update (Android).  These options
+# are deliberately independent from the standard start/stop notifications so
+# users can target a single phone without changing their existing recipients.
+CONF_LIVE_ACTIVITY_ENABLED       = "live_activity_enabled"
+CONF_LIVE_ACTIVITY_SERVICES      = "live_activity_services"
+CONF_LIVE_ACTIVITY_TITLE         = "live_activity_title"
+CONF_LIVE_ACTIVITY_DASHBOARD_URL = "live_activity_dashboard_url"
+CONF_LIVE_ACTIVITY_SOC_STEP      = "live_activity_soc_step"
+
+DEFAULT_LIVE_ACTIVITY_SOC_STEP = 5
+LIVE_ACTIVITY_MIN_UPDATE_SECONDS = 300
+LIVE_ACTIVITY_END_DISPLAY_SECONDS = 60
+LIVE_ACTIVITY_END_SHIFT_MINUTES = 15
+LIVE_ACTIVITY_START_DELAY_SECONDS = 10
+LIVE_ACTIVITY_SOC_STALE_MINUTES = 20
 
 NOTIFICATION_LANGUAGE_AUTO = "auto"
 NOTIFICATION_LANGUAGE_IT   = "it"
@@ -148,6 +166,26 @@ CHARGING_MODES = [
     CHARGING_MODE_MASTER_STOP,
 ]
 
+STOP_REASON_NONE = "none"
+STOP_REASON_MASTER_STOP = "master_stop"
+STOP_REASON_VEHICLE_TARGET = "vehicle_target_reached"
+STOP_REASON_USER_TARGET = "user_target_reached"
+STOP_REASON_LOW_POWER = "low_power_margin"
+STOP_REASON_PV_LOST = "pv_surplus_lost"
+STOP_REASON_EXTERNAL = "wallbox_stopped"
+STOP_REASON_MANUAL = "manual_stop"
+
+STOP_REASONS = [
+    STOP_REASON_NONE,
+    STOP_REASON_MASTER_STOP,
+    STOP_REASON_VEHICLE_TARGET,
+    STOP_REASON_USER_TARGET,
+    STOP_REASON_LOW_POWER,
+    STOP_REASON_PV_LOST,
+    STOP_REASON_EXTERNAL,
+    STOP_REASON_MANUAL,
+]
+
 # ── Entity unique-ID suffixes ──────────────────────────────────────────────────
 SENSOR_CHARGING_MODE          = "charging_mode"
 SENSOR_PV_SURPLUS             = "pv_surplus"
@@ -156,6 +194,7 @@ SENSOR_TIME_REMAINING         = "time_remaining"
 SENSOR_CHARGE_END_TIME        = "charge_end_time"
 SENSOR_WALLBOX_CURRENT_TARGET = "wallbox_current_target"
 SENSOR_WALLBOX_CURRENT_ACTUAL = "wallbox_current_actual"
+SENSOR_LAST_STOP_REASON       = "last_stop_reason"
 
 SWITCH_MASTER_STOP      = "master_stop"
 SWITCH_FORCE_CHARGE     = "force_charge"

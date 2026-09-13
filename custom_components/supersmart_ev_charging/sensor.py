@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     CHARGING_MODES,
+    STOP_REASONS,
     DOMAIN,
     SENSOR_CHARGING_MODE,
     SENSOR_PV_SURPLUS,
@@ -25,6 +26,7 @@ from .const import (
     SENSOR_CHARGE_END_TIME,
     SENSOR_WALLBOX_CURRENT_TARGET,
     SENSOR_WALLBOX_CURRENT_ACTUAL,
+    SENSOR_LAST_STOP_REASON,
 )
 from .coordinator import SuperSmartEvChargingCoordinator
 
@@ -46,6 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         ChargeEndTimeSensor(coordinator, entry),
         WallboxCurrentTargetSensor(coordinator, entry),
         WallboxCurrentActualSensor(coordinator, entry),
+        LastStopReasonSensor(coordinator, entry),
     ])
 
 
@@ -182,3 +185,18 @@ class WallboxCurrentActualSensor(_Base):
             (self.coordinator.data or {}).get("wallbox_current_actual_a", 0.0),
             1,
         )
+
+
+class LastStopReasonSensor(_Base):
+    """Expose why the most recent charging session stopped."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = STOP_REASONS
+    _attr_icon = "mdi:information-outline"
+
+    def __init__(self, c, e):
+        super().__init__(c, e, SENSOR_LAST_STOP_REASON)
+
+    @property
+    def native_value(self) -> str:
+        return self.coordinator.last_stop_reason

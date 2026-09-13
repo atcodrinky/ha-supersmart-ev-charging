@@ -62,7 +62,14 @@ from .const import (
     CONF_NOTIFY_START_MESSAGE,
     CONF_NOTIFY_STOP_TITLE,
     CONF_NOTIFY_STOP_MESSAGE,
+    CONF_LIVE_ACTIVITY_ENABLED,
+    CONF_LIVE_ACTIVITY_SERVICES,
+    CONF_LIVE_ACTIVITY_TITLE,
+    CONF_LIVE_ACTIVITY_DASHBOARD_URL,
+    CONF_LIVE_ACTIVITY_SOC_STEP,
     CONF_WALLBOX_MODE_ENTITY,
+    CONF_INITIAL_USER_SOC_TARGET,
+    CONF_INITIAL_VEHICLE_SOC_TARGET,
     DEFAULT_CONTRACT_POWER_W,
     DEFAULT_BATTERY_CAPACITY_KWH,
     DEFAULT_ALLOWED_IMPORT_W,
@@ -80,6 +87,12 @@ from .const import (
     DEFAULT_FV_HYGIENE_CURRENT_A,
     DEFAULT_PV_STOP_CONFIRM_CYCLES,
     DEFAULT_PV_START_CONFIRM_CYCLES,
+    DEFAULT_LIVE_ACTIVITY_SOC_STEP,
+    LIVE_ACTIVITY_MIN_UPDATE_SECONDS,
+    LIVE_ACTIVITY_END_DISPLAY_SECONDS,
+    LIVE_ACTIVITY_END_SHIFT_MINUTES,
+    LIVE_ACTIVITY_START_DELAY_SECONDS,
+    LIVE_ACTIVITY_SOC_STALE_MINUTES,
     DEFAULT_MQTT_TOPIC_POWER_GRID,
     DEFAULT_MQTT_TOPIC_POWER_SOLAR,
     DEFAULT_MQTT_TOPIC_POWER_HOUSE,
@@ -92,7 +105,21 @@ from .const import (
     CHARGING_MODE_NIGHT,
     CHARGING_MODE_FORCE,
     CHARGING_MODE_MASTER_STOP,
+    STOP_REASON_NONE,
+    STOP_REASON_MASTER_STOP,
+    STOP_REASON_VEHICLE_TARGET,
+    STOP_REASON_USER_TARGET,
+    STOP_REASON_LOW_POWER,
+    STOP_REASON_PV_LOST,
+    STOP_REASON_EXTERNAL,
+    STOP_REASON_MANUAL,
     NOTIFICATION_LANGUAGE_AUTO,
+)
+from .live_activity import (
+    build_live_payload,
+    end_time_shifted,
+    live_activity_tag,
+    soc_bucket,
 )
 from .notifications import notification_defaults, render_notification_template
 
@@ -205,6 +232,26 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             "stop_title": d.get(CONF_NOTIFY_STOP_TITLE),
             "stop_message": d.get(CONF_NOTIFY_STOP_MESSAGE),
         }
+        live_services = d.get(CONF_LIVE_ACTIVITY_SERVICES, [])
+        if isinstance(live_services, str):
+            live_services = [live_services]
+        self._live_activity_enabled = bool(
+            d.get(CONF_LIVE_ACTIVITY_ENABLED, False)
+        )
+        self._live_activity_services = [
+            str(service).strip()
+            for service in live_services
+            if str(service).strip()
+        ]
+        self._live_activity_title = str(
+            d.get(CONF_LIVE_ACTIVITY_TITLE, entry.title)
+        ).strip() or entry.title
+        self._live_activity_dashboard_url = str(
+            d.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, "")
+        ).strip()
+        self._live_activity_soc_step = int(
+            d.get(CONF_LIVE_ACTIVITY_SOC_STEP, DEFAULT_LIVE_ACTIVITY_SOC_STEP)
+        )
 
         # ── Power / capacity
         self._contract_power_w: float     = d.get(CONF_CONTRACT_POWER_W,     DEFAULT_CONTRACT_POWER_W)
@@ -217,8 +264,13 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self.night_charging_enabled: bool  = True    # abilita logica notturna F3
 
         # Limiti SOC esposti come number entities
-        self.user_soc_target: float    = float(d.get("initial_user_soc_target",    DEFAULT_USER_SOC_TARGET))
-        self.vehicle_soc_target: float = float(d.get("initial_vehicle_soc_target", DEFAULT_VEHICLE_SOC_TARGET))
+        self._default_user_soc_target = float(
+            d.get(CONF_INITIAL_USER_SOC_TARGET, DEFAULT_USER_SOC_TARGET)
+        )
+        self.user_soc_target: float = self._default_user_soc_target
+        self.vehicle_soc_target: float = float(
+            d.get(CONF_INITIAL_VEHICLE_SOC_TARGET, DEFAULT_VEHICLE_SOC_TARGET)
+        )
 
         # Limiti potenza esposti come number entities
         self.allowed_import_w: float    = DEFAULT_ALLOWED_IMPORT_W   # input_number.limite_import_permesso
@@ -239,6 +291,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
 
         # ── Stato derivato / calcolato
         self.charging_mode: str              = CHARGING_MODE_IDLE
+        self.last_stop_reason: str            = STOP_REASON_NONE
         self.amp_fv_surplus: float           = 0.0   # corrente FV calcolata (A)
         self.wallbox_current_target_a: float = 0.0
         self.last_limit_sent_a: float        = 0.0
@@ -248,6 +301,15 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._logic_lock = asyncio.Lock()
         self._state_change_task: asyncio.Task | None = None
         self._notification_tasks: set[asyncio.Task] = set()
+        self._live_activity_active = False
+        self._live_activity_tag = live_activity_tag(entry.entry_id)
+        self._live_last_soc_bucket: int | None = None
+        self._live_last_mode: str | None = None
+        self._live_last_target: int | None = None
+        self._live_last_end_time: datetime | None = None
+        self._live_last_update_at: datetime | None = None
+        self._live_start_task: asyncio.Task | None = None
+        self._live_clear_task: asyncio.Task | None = None
         self._last_notified_mode: str = "sconosciuta"
         self._vehicle_limit_sync_pending = False
         self._vehicle_limit_sync_task: asyncio.Task | None = None
@@ -286,6 +348,13 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._contract_power_w = float(saved.get("contract_power_w", self._contract_power_w))
         self.last_limit_sent_a = float(saved.get("last_limit_sent_a", self.last_limit_sent_a))
         self.charging_mode = str(saved.get("charging_mode", self.charging_mode))
+        self.last_stop_reason = str(
+            saved.get("last_stop_reason", self.last_stop_reason)
+        )
+        if self._get_state(self._wallbox_state_entity, WB_STATE_IDLE) == WB_STATE_IDLE:
+            self.user_soc_target = min(
+                self._default_user_soc_target, self.vehicle_soc_target
+            )
 
     # ── DataUpdateCoordinator ──────────────────────────────────────────────────
     async def _async_update_data(self) -> dict[str, Any]:
@@ -442,6 +511,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         """Serializza le valutazioni avviate dal timer e dagli eventi di stato."""
         async with self._logic_lock:
             await self._async_update_charging_logic(_now, trigger_entity)
+        await self._maybe_update_live_activity()
 
     async def _async_update_charging_logic(
         self,
@@ -461,6 +531,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
           7. IGIENE controller FV
         """
         await self.async_refresh()
+        if not self.last_update_success:
+            return
         data = self.data
         if not data:
             return
@@ -513,6 +585,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 await self._set_mode(self._payload_pause)
                 await self._delay(2)
                 await self._revoke()
+                self.last_stop_reason = STOP_REASON_MASTER_STOP
                 self.charging_mode = CHARGING_MODE_MASTER_STOP
                 self._reset_pv_counters()
                 self.async_update_listeners()
@@ -529,6 +602,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             await self._set_mode(self._payload_pause)
             await self._delay(1)
             await self._revoke()
+            self.last_stop_reason = STOP_REASON_VEHICLE_TARGET
             self.solar_controller_active = False
             self.charging_mode           = CHARGING_MODE_IDLE
             self._reset_pv_counters()
@@ -579,6 +653,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                         if wb_state_now == WB_STATE_CHARGING and amp_now < DEFAULT_PV_STOP_CURRENT_A:
                             await self._set_mode(self._payload_pause)
                             await self._revoke()
+                            self.last_stop_reason = STOP_REASON_LOW_POWER
                             self.charging_mode = CHARGING_MODE_IDLE
                         self._reset_pv_counters()
                 else:
@@ -612,6 +687,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                     _LOGGER.info("[SuperSmart] FV calato – stop carica + revoca auth")
                     await self._set_mode(self._payload_pause)
                     await self._revoke()
+                    self.last_stop_reason = STOP_REASON_PV_LOST
                     self.solar_controller_active = False
                     self.charging_mode           = CHARGING_MODE_IDLE
                     self._reset_pv_counters()
@@ -742,6 +818,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                         if amp_contratto_now < DEFAULT_PV_STOP_CURRENT_A:
                             await self._set_mode(self._payload_pause)
                             await self._revoke()
+                            self.last_stop_reason = STOP_REASON_LOW_POWER
                             self.charging_mode  = CHARGING_MODE_IDLE
                             self._reset_pv_counters()
                             self._fv_hygiene_cycles = 0
@@ -767,6 +844,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             await self._set_mode(self._payload_pause)
             await self._delay(1)
             await self._revoke()
+            self.last_stop_reason = STOP_REASON_USER_TARGET
             self.solar_controller_active = False
             self.charging_mode           = CHARGING_MODE_IDLE
             self._reset_pv_counters()
@@ -843,6 +921,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self.charging_mode           = CHARGING_MODE_PV_SURPLUS
         else:
             _LOGGER.info("[SuperSmart] Uscita FORZA: nessuna condizione – stop ricarica")
+            self.last_stop_reason = STOP_REASON_MANUAL
             await self._set_mode(self._payload_pause)
             await self._revoke()
             self.solar_controller_active = False
@@ -974,13 +1053,29 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             "contract_power_w": self._contract_power_w,
             "last_limit_sent_a": self.last_limit_sent_a,
             "charging_mode": self.charging_mode,
+            "last_stop_reason": self.last_stop_reason,
         })
 
     # ── Eventi, sync target e notifiche ──────────────────────────────────────
     def schedule_state_change(self, entity_id: str, old_state: str, new_state: str) -> None:
         """Debounce degli eventi HA senza cancellare una decisione già in corso."""
         if entity_id == self._wallbox_state_entity and old_state != new_state:
+            if new_state == WB_STATE_IDLE:
+                reset_target = min(
+                    self._default_user_soc_target, self.vehicle_soc_target
+                )
+                if self.user_soc_target != reset_target:
+                    self.user_soc_target = reset_target
+                    self.async_update_listeners()
+            if new_state == WB_STATE_CHARGING:
+                self.last_stop_reason = STOP_REASON_NONE
+            elif (
+                old_state == WB_STATE_CHARGING
+                and self.last_stop_reason == STOP_REASON_NONE
+            ):
+                self.last_stop_reason = STOP_REASON_EXTERNAL
             self._schedule_charge_notification(old_state, new_state)
+            self._schedule_live_activity_transition(old_state, new_state)
 
         # Auto/MySkoda -> integrazione: nessun ritardo. Se durante l'attesa di
         # un comando HA arriva un valore diverso dall'auto, replica `mode:
@@ -1084,6 +1179,210 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._notification_tasks.add(task)
         task.add_done_callback(self._notification_tasks.discard)
 
+    def _schedule_live_activity_transition(
+        self, old_state: str, new_state: str
+    ) -> None:
+        """Start or finish the phone activity after a stable wallbox transition."""
+        if not self._live_activity_enabled or not self._live_activity_services:
+            return
+        if new_state == WB_STATE_CHARGING and old_state != WB_STATE_CHARGING:
+            if self._live_clear_task and not self._live_clear_task.done():
+                self._live_clear_task.cancel()
+            if self._live_start_task and not self._live_start_task.done():
+                self._live_start_task.cancel()
+            self._live_start_task = self.hass.async_create_task(
+                self._start_live_activity_after_delay()
+            )
+        elif old_state == WB_STATE_CHARGING and new_state != WB_STATE_CHARGING:
+            if self._live_start_task and not self._live_start_task.done():
+                self._live_start_task.cancel()
+            task = self.hass.async_create_task(
+                self._finish_live_activity_after_delay()
+            )
+            self._notification_tasks.add(task)
+            task.add_done_callback(self._notification_tasks.discard)
+
+    async def _start_live_activity_after_delay(self) -> None:
+        """Wait for a stable charge before using the push-to-start budget."""
+        task = asyncio.current_task()
+        try:
+            await asyncio.sleep(LIVE_ACTIVITY_START_DELAY_SECONDS)
+            if self._get_state(
+                self._wallbox_state_entity, WB_STATE_IDLE
+            ) != WB_STATE_CHARGING:
+                return
+            await self.async_refresh()
+            if not self.last_update_success:
+                return
+            self._live_activity_active = True
+            await self._send_live_activity(silent=False)
+        except asyncio.CancelledError:
+            return
+        finally:
+            if self._live_start_task is task:
+                self._live_start_task = None
+
+    async def _maybe_update_live_activity(self) -> None:
+        """Update only on meaningful changes and with a coarse rate limit."""
+        if not self._live_activity_enabled or not self._live_activity_services:
+            return
+        if self._get_state(
+            self._wallbox_state_entity, WB_STATE_IDLE
+        ) != WB_STATE_CHARGING:
+            return
+
+        # Resume an activity after a Home Assistant/integration reload.  The
+        # stable tag updates the existing phone activity instead of duplicating it.
+        if not self._live_activity_active:
+            if not self._live_start_task or self._live_start_task.done():
+                self._live_start_task = self.hass.async_create_task(
+                    self._start_live_activity_after_delay()
+                )
+            return
+
+        data = self.data or {}
+        soc_value = data.get("vehicle_soc")
+        if not data.get("vehicle_soc_valid") or soc_value is None:
+            return
+        bucket = soc_bucket(float(soc_value), self._live_activity_soc_step)
+        mode = self._notification_mode()
+        target = int(data.get("target_soc_active", self.user_soc_target))
+        end_time = data.get("charge_end_time")
+        meaningful = (
+            bucket != self._live_last_soc_bucket
+            or mode != self._live_last_mode
+            or target != self._live_last_target
+            or end_time_shifted(
+                self._live_last_end_time,
+                end_time if isinstance(end_time, datetime) else None,
+                LIVE_ACTIVITY_END_SHIFT_MINUTES,
+            )
+        )
+        if not meaningful:
+            return
+
+        now = dt_util.now()
+        urgent = mode != self._live_last_mode or target != self._live_last_target
+        if (
+            not urgent
+            and self._live_last_update_at is not None
+            and (now - self._live_last_update_at).total_seconds()
+            < LIVE_ACTIVITY_MIN_UPDATE_SECONDS
+        ):
+            return
+        await self._send_live_activity(silent=True)
+
+    def _soc_is_stale(self) -> bool:
+        state = self.hass.states.get(self._soc_entity)
+        if state is None or state.state.lower() in ("unknown", "unavailable", ""):
+            return True
+        return (
+            dt_util.now() - state.last_updated
+        ).total_seconds() > LIVE_ACTIVITY_SOC_STALE_MINUTES * 60
+
+    async def _send_live_activity(self, *, silent: bool) -> None:
+        """Send or update the activity on every selected Companion App."""
+        data = self.data or {}
+        mode = self._notification_mode()
+        defaults = notification_defaults(
+            self._notification_language, self.hass.config.language
+        )
+        mode_label = defaults["modes"].get(mode, defaults["modes"]["sconosciuta"])
+        soc_valid = bool(data.get("vehicle_soc_valid")) and not self._soc_is_stale()
+        soc = int(float(data.get("vehicle_soc", 0))) if soc_valid else None
+        target = int(data.get("target_soc_active", self.user_soc_target))
+        power = round(float(data.get("wallbox_power_w", 0.0)) / 1000.0, 1)
+        if soc_valid:
+            message = defaults["live_charging"].format(
+                mode=mode_label, power=power, target=target
+            )
+            remaining = data.get("remaining_minutes")
+        else:
+            message = defaults["live_soc_stale"].format(mode=mode_label)
+            remaining = None
+        payload = build_live_payload(
+            title=self._live_activity_title,
+            message=message,
+            tag=self._live_activity_tag,
+            soc=soc,
+            target=target,
+            mode=mode,
+            remaining_minutes=(
+                float(remaining) if remaining is not None else None
+            ),
+            dashboard_url=self._live_activity_dashboard_url,
+            silent=silent,
+        )
+        await self._notify_services_call(self._live_activity_services, payload)
+        self._live_activity_active = True
+        self._live_last_soc_bucket = (
+            soc_bucket(soc, self._live_activity_soc_step) if soc is not None else None
+        )
+        self._live_last_mode = mode
+        self._live_last_target = target
+        end_time = data.get("charge_end_time")
+        self._live_last_end_time = end_time if isinstance(end_time, datetime) else None
+        self._live_last_update_at = dt_util.now()
+
+    async def _finish_live_activity_after_delay(self) -> None:
+        await asyncio.sleep(15)
+        if self._get_state(
+            self._wallbox_state_entity, WB_STATE_IDLE
+        ) == WB_STATE_CHARGING:
+            return
+        data = self.data or {}
+        defaults = notification_defaults(
+            self._notification_language, self.hass.config.language
+        )
+        soc_value = data.get("vehicle_soc")
+        soc = int(float(soc_value)) if data.get("vehicle_soc_valid") else None
+        mode = self._live_last_mode or self._notification_mode()
+        target = int(data.get("target_soc_active", self.user_soc_target))
+        reason = defaults["stop_reasons"].get(
+            self.last_stop_reason,
+            defaults["stop_reasons"][STOP_REASON_NONE],
+        )
+        payload = build_live_payload(
+            title=self._live_activity_title,
+            message=defaults["live_completed"].format(
+                soc=soc if soc is not None else "—",
+                reason=reason,
+            ),
+            tag=self._live_activity_tag,
+            soc=soc,
+            target=target,
+            mode=mode,
+            remaining_minutes=None,
+            dashboard_url=self._live_activity_dashboard_url,
+            silent=False,
+        )
+        await self._notify_services_call(self._live_activity_services, payload)
+        self._live_activity_active = False
+        self._live_clear_task = self.hass.async_create_task(
+            self._clear_live_activity_after_delay()
+        )
+
+    async def _clear_live_activity_after_delay(self) -> None:
+        task = asyncio.current_task()
+        try:
+            await asyncio.sleep(LIVE_ACTIVITY_END_DISPLAY_SECONDS)
+            if self._get_state(
+                self._wallbox_state_entity, WB_STATE_IDLE
+            ) == WB_STATE_CHARGING:
+                return
+            await self._notify_services_call(
+                self._live_activity_services,
+                {
+                    "message": "clear_notification",
+                    "data": {"tag": self._live_activity_tag},
+                },
+            )
+        except asyncio.CancelledError:
+            return
+        finally:
+            if self._live_clear_task is task:
+                self._live_clear_task = None
+
     async def _notify_charge_started(self) -> None:
         await asyncio.sleep(10)
         if self._get_state(self._wallbox_state_entity, WB_STATE_IDLE) != WB_STATE_CHARGING:
@@ -1178,7 +1477,18 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         return "sconosciuta"
 
     async def _notify(self, title: str, message: str) -> None:
-        for notify_service in self._notify_services:
+        await self._notify_services_call(
+            self._notify_services,
+            {"title": title, "message": message},
+        )
+
+    async def _notify_services_call(
+        self,
+        services: list[str],
+        payload: dict[str, Any],
+    ) -> None:
+        """Call selected notify actions with a standard or live payload."""
+        for notify_service in services:
             try:
                 domain, service = notify_service.split(".", 1)
             except ValueError:
@@ -1187,14 +1497,48 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             if domain != "notify" or not self.hass.services.has_service(domain, service):
                 _LOGGER.warning("Servizio notifica non disponibile: %s", notify_service)
                 continue
-            await self.hass.services.async_call(
-                domain,
-                service,
-                {"title": title, "message": message},
-                blocking=False,
-            )
+            try:
+                await self.hass.services.async_call(
+                    domain,
+                    service,
+                    payload,
+                    blocking=False,
+                )
+            except Exception:  # noqa: BLE001 - one phone must not stop the controller
+                _LOGGER.exception(
+                    "Errore durante l'invio della notifica a %s", notify_service
+                )
 
     async def async_shutdown(self) -> None:
+        # An options save reloads the entry.  Clear the old activity only on
+        # phones that were disabled or removed; unchanged targets keep the
+        # stable tag and are resumed by the new coordinator without flicker.
+        latest = {**self.entry.data, **self.entry.options}
+        latest_enabled = bool(latest.get(CONF_LIVE_ACTIVITY_ENABLED, False))
+        latest_services = latest.get(CONF_LIVE_ACTIVITY_SERVICES, [])
+        if isinstance(latest_services, str):
+            latest_services = [latest_services]
+        retained = set(latest_services) if latest_enabled else set()
+        latest_title = str(
+            latest.get(CONF_LIVE_ACTIVITY_TITLE, self.entry.title)
+        ).strip() or self.entry.title
+        # Il titolo è statico per tutta la vita dell'attività. Se cambia,
+        # chiudi quella corrente e lascia che il nuovo coordinator la riapra.
+        if latest_title != self._live_activity_title:
+            retained = set()
+        removed_services = [
+            service
+            for service in self._live_activity_services
+            if service not in retained
+        ]
+        if removed_services:
+            await self._notify_services_call(
+                removed_services,
+                {
+                    "message": "clear_notification",
+                    "data": {"tag": self._live_activity_tag},
+                },
+            )
         if self._state_change_task and not self._state_change_task.done():
             self._state_change_task.cancel()
         if (
@@ -1204,6 +1548,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self._vehicle_limit_sync_task.cancel()
         for task in list(self._notification_tasks):
             task.cancel()
+        if self._live_start_task and not self._live_start_task.done():
+            self._live_start_task.cancel()
+        if self._live_clear_task and not self._live_clear_task.done():
+            self._live_clear_task.cancel()
         if self._save_task and not self._save_task.done():
             self._save_task.cancel()
         await self._save_state()

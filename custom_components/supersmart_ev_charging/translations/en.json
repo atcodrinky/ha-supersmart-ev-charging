@@ -12,6 +12,7 @@
           "mqtt_enabled": "Enable wallbox control via MQTT",
           "energy_publish_enabled": "Publish energy telemetry to Prism via MQTT",
           "notifications_enabled": "Configure charging notifications now",
+          "live_activity_enabled": "Configure Live Activity / Live Update now",
           "initial_user_soc_target": "User SOC target – used for NIGHT F3 charging (%)",
           "initial_vehicle_soc_target": "Vehicle SOC target – used for PV SURPLUS & FORCE (%)"
         },
@@ -58,6 +59,16 @@
           "notify_stop_message": "Charging completed – message"
         }
       },
+      "live_activity": {
+        "title": "SuperSmart EV Charging – Live Activity / Live Update",
+        "description": "Show the charging session on the Lock Screen. Requires Home Assistant 2026.7+, iOS 17.2+ or Android 16+. The optional dashboard link can be a relative path such as /lovelace/ev.",
+        "data": {
+          "live_activity_services": "Companion App phones",
+          "live_activity_title": "Vehicle name / displayed title",
+          "live_activity_soc_step": "Update for each SOC change (%)",
+          "live_activity_dashboard_url": "Dashboard link (optional)"
+        }
+      },
       "mqtt": {
         "title": "SuperSmart EV Charging – Wallbox MQTT configuration",
         "description": "MQTT topics for wallbox control. For Silla Prism: set_mode = prism/1/command/set_mode, current = prism/1/command/set_current_limit. Authorize/revoke topics are only used if HA button entities are NOT configured.",
@@ -81,22 +92,27 @@
       "instance_name_exists": "An instance already uses this name; choose a different one",
       "vehicle_or_wallbox_already_configured": "The vehicle SOC sensor or wallbox state entity already belongs to another instance",
       "notification_destination_required": "Select at least one valid notify.* destination",
-      "invalid_notification_template": "A message contains invalid braces or an unsupported placeholder"
+      "invalid_notification_template": "A message contains invalid braces or an unsupported placeholder",
+      "live_activity_destination_required": "Select at least one direct notify.mobile_app_* service"
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "SuperSmart EV Charging – Options",
+        "description": "Configuring: {instance}. Changes remain in draft until you select Save & Close.",
         "menu_options": {
           "general": "General settings",
-          "notifications": "Notifications"
+          "notifications": "Notifications",
+          "live_activity": "Live Activity / Live Update",
+          "save_and_close": "✅ Save & Close"
         }
       },
       "general": {
         "title": "SuperSmart EV Charging – General settings",
         "data": {
           "battery_capacity_kwh": "Usable battery capacity (kWh)",
+          "initial_user_soc_target": "Default user SOC target after disconnect (%)",
           "tariff_enabled": "Enable off-peak charging",
           "mqtt_enabled": "Enable MQTT",
           "energy_publish_enabled": "Publish Prism energy telemetry"
@@ -121,11 +137,23 @@
           "notify_stop_title": "Charging completed – title",
           "notify_stop_message": "Charging completed – message"
         }
+      },
+      "live_activity": {
+        "title": "SuperSmart EV Charging – Live Activity / Live Update",
+        "description": "Changes are applied only after selecting Save & Close from the main menu. You can use the vehicle name as the title, for example Tesla Model 3.",
+        "data": {
+          "live_activity_enabled": "Enable Live Activity / Live Update",
+          "live_activity_services": "Companion App phones",
+          "live_activity_title": "Vehicle name / displayed title",
+          "live_activity_soc_step": "Update for each SOC change (%)",
+          "live_activity_dashboard_url": "Dashboard link (optional)"
+        }
       }
     },
     "error": {
       "notification_destination_required": "Select at least one valid notify.* destination",
-      "invalid_notification_template": "A message contains invalid braces or an unsupported placeholder"
+      "invalid_notification_template": "A message contains invalid braces or an unsupported placeholder",
+      "live_activity_destination_required": "Select at least one direct notify.mobile_app_* service"
     }
   },
   "selector": {
@@ -154,7 +182,20 @@
       "time_remaining": { "name": "Charging Time Remaining" },
       "charge_end_time": { "name": "Estimated Charge End Time" },
       "wallbox_current_target": { "name": "Wallbox Current Target" },
-      "wallbox_current_actual": { "name": "Actual Wallbox Current" }
+      "wallbox_current_actual": { "name": "Actual Wallbox Current" },
+      "last_stop_reason": {
+        "name": "Last Stop Reason",
+        "state": {
+          "none": "None",
+          "master_stop": "Master Stop",
+          "vehicle_target_reached": "Vehicle target reached",
+          "user_target_reached": "User target reached",
+          "low_power_margin": "Insufficient power margin",
+          "pv_surplus_lost": "PV surplus ended",
+          "wallbox_stopped": "Charging stopped by wallbox",
+          "manual_stop": "Charging stopped manually"
+        }
+      }
     },
     "switch": {
       "master_stop": { "name": "Master Stop" },

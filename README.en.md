@@ -29,6 +29,7 @@ equivalent entities and commands.
 | 🛑 **Master Stop** | Immediately revokes authorization and blocks every charging mode |
 | 🔄 **SOC synchronization** | Synchronizes the vehicle target with the car charge limit when configured |
 | ⏱️ **Charging estimates** | Calculates remaining time and completion time from SOC, usable capacity and actual power |
+| 📱 **Live Activity / Live Update** | Shows SOC, target, mode, power and remaining time on the Lock Screen |
 | 📡 **Configurable MQTT** | Configurable topics, payloads and telemetry; HA buttons can authorize and revoke |
 | 🛡️ **Operational safeguards** | Input validation, PV hysteresis, minimum current, maximum limits and command anti-spam |
 
@@ -42,6 +43,13 @@ equivalent entities and commands.
 - grid power, PV production, wallbox state and wallbox power sensors;
 - MQTT configured in Home Assistant when automatic wallbox mode and current
   control are required.
+
+Live Activities require Home Assistant Core 2026.7 or later, iOS 17.2 or later,
+and Home Assistant Companion App for iOS 2026.7.0 or later. The first 2026.7
+builds were distributed through TestFlight; using the latest available app and
+enabling Live Activities in its settings is recommended. On Android 16 or later
+they are displayed as Live Updates; earlier Android devices retain the
+progress-notification fallback.
 
 ### Required conventions
 
@@ -73,12 +81,13 @@ equivalent entities and commands.
 | Instance and device name | Vehicle name also used as the basis for entity IDs | SuperSmart EV Charging |
 | Total operating power limit | Desired overall ceiling for the house and wallbox | 5700 W |
 | Usable battery capacity | Actual usable capacity, adjustable over time | 60 kWh |
-| User SOC target | Target used by off-peak charging | 50% |
+| User SOC target | Off-peak target restored after disconnection | 50% |
 | Vehicle SOC target | Target used by PV and Force Charge | 80% |
 | Off-peak tariff | Enables the off-peak charging logic | Enabled |
 | MQTT | Enables MQTT wallbox control | Enabled |
 | MQTT energy telemetry | Publishes energy data to the configured topics | Enabled |
 | Notifications | Opens the optional notification setup | Disabled |
+| Live Activity / Live Update | Opens the optional Companion App phone setup | Disabled |
 
 ### Step 2 — Home Assistant entities
 
@@ -120,6 +129,37 @@ Notifications can also be enabled, disabled or changed later from the
 integration gear icon. The same page directly shows enablement, recipients and
 language; when customization is enabled, the next step lets the user edit titles
 and messages. The device and its entities do not need to be recreated.
+
+### Optional step — Live Activity / Live Update
+
+The charging session can be shown on the Lock Screen and, on compatible iPhone
+models, in the Dynamic Island. Its title initially matches the instance name
+but can be edited separately, for example `Škoda Elroq`, `Tesla Model 3`, or
+`Marco's car`.
+
+You can select one or more direct `notify.mobile_app_*` services, the displayed
+name, an SOC update threshold in 5% increments, and an optional dashboard link.
+Relative paths such as `/lovelace/ev` and full HTTPS addresses are accepted.
+Tapping the activity opens that page directly.
+
+Intermediate updates are silent and reuse the same activity. They are sent when
+the SOC band, charging mode, or target changes and when the estimated finish
+moves significantly. At the end, the final SOC and stop reason are displayed
+before the activity closes automatically. If the SOC is stale, the countdown is
+hidden instead of showing an unreliable estimate.
+
+Apple allows a Live Activity to remain active for up to 8 hours. It is then
+removed immediately from the Dynamic Island, but may remain on the Lock Screen
+for another 4 hours, for a maximum visible lifetime of 12 hours. This limit only
+affects the iPhone display: it does not stop charging or the integration.
+
+To change an existing setup, open the integration gear icon. Each page updates
+a draft: select **✅ Save & Close** to store every change and reload the instance
+once. Closing with X discards the draft.
+
+The general settings also let you choose the default user SOC target. When the
+wallbox returns to `idle` after the vehicle is disconnected, the integration
+automatically restores that value.
 
 ### Final step — MQTT commands
 
@@ -179,6 +219,7 @@ automatically to instances created with v1.2.0 or later.
 | Estimated Charge End Time | Timezone-aware timestamp formatted by Home Assistant |
 | Wallbox Current Target | Last current limit actually sent to the wallbox |
 | Actual Wallbox Current | Estimate calculated from wallbox power and voltage |
+| Last Stop Reason | Target reached, Master Stop, insufficient margin, PV loss, or wallbox stop |
 
 ### Switches
 

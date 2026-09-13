@@ -29,6 +29,7 @@ comandi equivalenti.
 | 🛑 **Master Stop** | Revoca immediatamente l'autorizzazione e blocca ogni modalità di ricarica |
 | 🔄 **Sincronizzazione SOC** | Sincronizza il target veicolo con il limite di carica dell'auto, se configurato |
 | ⏱️ **Stime di ricarica** | Calcola tempo rimanente e ora di fine usando SOC, capacità utile e potenza reale |
+| 📱 **Live Activity / Live Update** | Mostra SOC, target, modalità, potenza e tempo residuo sulla schermata di blocco |
 | 📡 **MQTT configurabile** | Topic, payload e telemetria configurabili; autorizzazione e revoca possono usare button HA |
 | 🛡️ **Protezioni operative** | Ingressi validati, isteresi FV, corrente minima, limiti massimi e anti-spam dei comandi |
 
@@ -42,6 +43,14 @@ comandi equivalenti.
 - sensori di potenza rete, produzione FV, stato e potenza wallbox;
 - MQTT configurato in Home Assistant se si desidera il controllo automatico
   della modalità e della corrente della wallbox.
+
+Le Live Activity richiedono Home Assistant Core 2026.7 o successivo, iOS 17.2
+o successivo e Home Assistant Companion App per iOS 2026.7.0 o successiva. Le
+prime build 2026.7 erano distribuite tramite TestFlight: è consigliato usare la
+versione più recente disponibile e abilitare Live Activities nelle impostazioni
+della Companion App. Su Android 16 o successivo vengono mostrate come Live
+Update; sui dispositivi Android precedenti resta disponibile la notifica con
+avanzamento.
 
 ### Convenzioni richieste
 
@@ -74,12 +83,13 @@ comandi equivalenti.
 | Nome istanza e dispositivo | Nome dell'auto usato anche come base per gli ID entità | SuperSmart EV Charging |
 | Limite operativo potenza totale | Tetto complessivo desiderato per casa e wallbox | 5700 W |
 | Capacità utile batteria | Capacità realmente utilizzabile, modificabile nel tempo | 60 kWh |
-| Target SOC utente | Obiettivo usato dalla ricarica notturna | 50% |
+| Target SOC utente | Obiettivo notturno e valore ripristinato alla disconnessione | 50% |
 | Target SOC veicolo | Obiettivo usato da FV e Forza Ricarica | 80% |
 | Fascia off-peak | Abilita la logica della ricarica notturna | Attiva |
 | MQTT | Abilita il controllo della wallbox tramite MQTT | Attivo |
 | Telemetria energia MQTT | Pubblica i dati energetici sui topic configurati | Attiva |
 | Notifiche | Apre la configurazione facoltativa delle notifiche | Disattivate |
+| Live Activity / Live Update | Apre la configurazione facoltativa per i telefoni Companion App | Disattivata |
 
 ### Passaggio 2 — Entità Home Assistant
 
@@ -121,6 +131,41 @@ seguito dall'icona dell'ingranaggio dell'integrazione. La stessa pagina mostra
 direttamente attivazione, destinatari e lingua; abilitando la personalizzazione,
 il passaggio successivo permette di modificare titoli e messaggi. Non è
 necessario ricreare il dispositivo o le entità.
+
+### Passaggio facoltativo — Live Activity / Live Update
+
+La sessione di ricarica può essere mostrata sulla schermata di blocco e, sui
+modelli iPhone compatibili, nella Dynamic Island. Il titolo parte dal nome
+dell'istanza ma è modificabile separatamente, per esempio `Škoda Elroq`,
+`Tesla Model 3` o `Auto di Marco`.
+
+È possibile scegliere uno o più servizi diretti `notify.mobile_app_*`, il nome
+mostrato, la soglia di aggiornamento SOC a incrementi di 5% e un collegamento
+facoltativo alla plancia. Sono accettati percorsi relativi come
+`/lovelace/auto` e indirizzi HTTPS completi. Un tocco sulla Live Activity apre
+direttamente quella pagina.
+
+Gli aggiornamenti intermedi sono silenziosi e usano la stessa attività. Vengono
+inviati al cambio della fascia SOC, della modalità o del target e quando la fine
+stimata varia sensibilmente. Alla conclusione viene mostrato il SOC finale e il
+motivo dell'arresto, poi l'attività viene chiusa automaticamente. Se il SOC è
+obsoleto, il conto alla rovescia viene nascosto invece di mostrare una stima
+inaffidabile.
+
+Apple consente a una Live Activity di restare attiva per un massimo di 8 ore.
+Scaduto questo limite viene rimossa subito dalla Dynamic Island, ma può rimanere
+sulla schermata di blocco per altre 4 ore: il tempo massimo visibile è quindi
+12 ore. Questo limite riguarda solo la visualizzazione su iPhone e non interrompe
+la ricarica né il funzionamento dell'integrazione.
+
+Per modificare una configurazione esistente apri l'ingranaggio
+dell'integrazione. Le pagine aggiornano una bozza: scegli **✅ Salva ed esci**
+per memorizzare tutte le modifiche e ricaricare una sola volta l'istanza. La X
+chiude il flusso senza applicare la bozza.
+
+Nelle impostazioni generali puoi anche scegliere il target SOC utente
+predefinito. Quando la wallbox torna in `idle` per la disconnessione del veicolo,
+il target utente viene ripristinato automaticamente a quel valore.
 
 ### Passaggio finale — Comandi MQTT
 
@@ -181,6 +226,7 @@ automaticamente alle istanze create dalla v1.2.0 in poi.
 | Fine ricarica stimata | Timestamp con fuso orario, formattato da Home Assistant |
 | Corrente target wallbox | Ultimo limite di corrente effettivamente inviato |
 | Corrente effettiva wallbox | Stima ottenuta da potenza wallbox e tensione |
+| Ultimo motivo arresto | Target raggiunto, Master Stop, margine insufficiente, fine surplus o stop della wallbox |
 
 ### Switch
 

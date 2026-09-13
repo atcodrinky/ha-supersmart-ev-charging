@@ -12,6 +12,7 @@
           "mqtt_enabled": "Abilita controllo wallbox via MQTT",
           "energy_publish_enabled": "Invia telemetria energia alla Prism via MQTT",
           "notifications_enabled": "Configura ora le notifiche di ricarica",
+          "live_activity_enabled": "Configura ora Live Activity / Live Update",
           "initial_user_soc_target": "Target SOC utente – usato per ricarica NOTTE F3 (%)",
           "initial_vehicle_soc_target": "Target SOC veicolo – usato per SURPLUS FV e FORZA (%)"
         },
@@ -58,6 +59,16 @@
           "notify_stop_message": "Ricarica terminata – messaggio"
         }
       },
+      "live_activity": {
+        "title": "SuperSmart EV Charging – Live Activity / Live Update",
+        "description": "Mostra la sessione sulla schermata di blocco. Richiede Home Assistant 2026.7+, iOS 17.2+ oppure Android 16+. Il collegamento alla plancia è facoltativo e può essere un percorso relativo, per esempio /lovelace/auto.",
+        "data": {
+          "live_activity_services": "Telefoni Companion App",
+          "live_activity_title": "Nome auto / titolo mostrato",
+          "live_activity_soc_step": "Aggiorna ogni variazione SOC (%)",
+          "live_activity_dashboard_url": "Collegamento alla plancia (facoltativo)"
+        }
+      },
       "mqtt": {
         "title": "SuperSmart EV Charging – Configurazione MQTT wallbox",
         "description": "Topic MQTT per il controllo della wallbox. Per Silla Prism: set_mode = prism/1/command/set_mode, set_current = prism/1/command/set_current_limit. I topic authorize/revoke sono usati SOLO se non sono configurate le entità button HA.",
@@ -81,22 +92,27 @@
       "instance_name_exists": "Esiste già un'istanza con questo nome: scegline uno diverso",
       "vehicle_or_wallbox_already_configured": "Il sensore SOC del veicolo o lo stato della wallbox appartiene già a un'altra istanza",
       "notification_destination_required": "Seleziona almeno un destinatario notify.* valido",
-      "invalid_notification_template": "Un messaggio contiene parentesi non valide o una variabile non supportata"
+      "invalid_notification_template": "Un messaggio contiene parentesi non valide o una variabile non supportata",
+      "live_activity_destination_required": "Seleziona almeno un servizio diretto notify.mobile_app_*"
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "SuperSmart EV Charging – Opzioni",
+        "description": "Configurazione: {instance}. Le modifiche restano in bozza finché non selezioni Salva ed esci.",
         "menu_options": {
           "general": "Impostazioni generali",
-          "notifications": "Notifiche"
+          "notifications": "Notifiche",
+          "live_activity": "Live Activity / Live Update",
+          "save_and_close": "✅ Salva ed esci"
         }
       },
       "general": {
         "title": "SuperSmart EV Charging – Impostazioni generali",
         "data": {
           "battery_capacity_kwh": "Capacità utile batteria (kWh)",
+          "initial_user_soc_target": "Target SOC utente predefinito dopo la disconnessione (%)",
           "tariff_enabled": "Abilita ricarica off-peak F3",
           "mqtt_enabled": "Abilita MQTT",
           "energy_publish_enabled": "Invia telemetria energia alla Prism"
@@ -121,11 +137,23 @@
           "notify_stop_title": "Ricarica terminata – titolo",
           "notify_stop_message": "Ricarica terminata – messaggio"
         }
+      },
+      "live_activity": {
+        "title": "SuperSmart EV Charging – Live Activity / Live Update",
+        "description": "Le modifiche saranno applicate soltanto scegliendo Salva ed esci dal menu principale. Come titolo puoi usare il nome dell'auto, per esempio Škoda Elroq.",
+        "data": {
+          "live_activity_enabled": "Abilita Live Activity / Live Update",
+          "live_activity_services": "Telefoni Companion App",
+          "live_activity_title": "Nome auto / titolo mostrato",
+          "live_activity_soc_step": "Aggiorna ogni variazione SOC (%)",
+          "live_activity_dashboard_url": "Collegamento alla plancia (facoltativo)"
+        }
       }
     },
     "error": {
       "notification_destination_required": "Seleziona almeno un destinatario notify.* valido",
-      "invalid_notification_template": "Un messaggio contiene parentesi non valide o una variabile non supportata"
+      "invalid_notification_template": "Un messaggio contiene parentesi non valide o una variabile non supportata",
+      "live_activity_destination_required": "Seleziona almeno un servizio diretto notify.mobile_app_*"
     }
   },
   "selector": {
@@ -154,7 +182,20 @@
       "time_remaining": { "name": "Tempo ricarica rimanente" },
       "charge_end_time": { "name": "Fine ricarica stimata" },
       "wallbox_current_target": { "name": "Corrente target wallbox" },
-      "wallbox_current_actual": { "name": "Corrente effettiva wallbox" }
+      "wallbox_current_actual": { "name": "Corrente effettiva wallbox" },
+      "last_stop_reason": {
+        "name": "Ultimo motivo arresto",
+        "state": {
+          "none": "Nessuno",
+          "master_stop": "Master Stop",
+          "vehicle_target_reached": "Target veicolo raggiunto",
+          "user_target_reached": "Target utente raggiunto",
+          "low_power_margin": "Margine di potenza insufficiente",
+          "pv_surplus_lost": "Surplus FV terminato",
+          "wallbox_stopped": "Ricarica fermata dalla wallbox",
+          "manual_stop": "Ricarica fermata manualmente"
+        }
+      }
     },
     "switch": {
       "master_stop": { "name": "Master Stop" },
