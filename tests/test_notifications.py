@@ -59,6 +59,16 @@ class NotificationTests(unittest.TestCase):
             english["stop_reasons"]["manual_stop"],
             "Charging stopped manually",
         )
+        self.assertEqual(italian["live_modes"]["notturna_f3"], "🌙 F3")
+        self.assertEqual(english["live_modes"]["fv_surplus"], "☀️ Solar")
+        self.assertEqual(
+            italian["live_charging"].format(
+                mode=italian["live_modes"]["forza"],
+                target=80,
+                charge_end_time="22:01",
+            ),
+            "⚡ Forza · 🎯 80% · 22:01",
+        )
 
     def test_custom_template_renders_supported_values(self) -> None:
         rendered = notifications.render_notification_template(

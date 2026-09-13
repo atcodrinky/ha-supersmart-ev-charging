@@ -29,7 +29,7 @@ comandi equivalenti.
 | 🛑 **Master Stop** | Revoca immediatamente l'autorizzazione e blocca ogni modalità di ricarica |
 | 🔄 **Sincronizzazione SOC** | Sincronizza il target veicolo con il limite di carica dell'auto, se configurato |
 | ⏱️ **Stime di ricarica** | Calcola tempo rimanente e ora di fine usando SOC, capacità utile e potenza reale |
-| 📱 **Live Activity / Live Update** | Mostra SOC, target, modalità, potenza e tempo residuo sulla schermata di blocco |
+| 📱 **Live Activity / Live Update** | Mostra SOC, target, modalità e ora di fine stimata sulla schermata di blocco |
 | 📡 **MQTT configurabile** | Topic, payload e telemetria configurabili; autorizzazione e revoca possono usare button HA |
 | 🛡️ **Protezioni operative** | Ingressi validati, isteresi FV, corrente minima, limiti massimi e anti-spam dei comandi |
 
@@ -140,17 +140,21 @@ dell'istanza ma è modificabile separatamente, per esempio `Škoda Elroq`,
 `Tesla Model 3` o `Auto di Marco`.
 
 È possibile scegliere uno o più servizi diretti `notify.mobile_app_*`, il nome
-mostrato, la soglia di aggiornamento SOC a incrementi di 5% e un collegamento
-facoltativo alla plancia. Sono accettati percorsi relativi come
+mostrato, una soglia di aggiornamento SOC dall'1% al 25% (predefinita 5%) e un
+collegamento facoltativo alla plancia. Sono accettati percorsi relativi come
 `/lovelace/auto` e indirizzi HTTPS completi. Un tocco sulla Live Activity apre
 direttamente quella pagina.
 
-Gli aggiornamenti intermedi sono silenziosi e usano la stessa attività. Vengono
-inviati al cambio della fascia SOC, della modalità o del target e quando la fine
-stimata varia sensibilmente. Alla conclusione viene mostrato il SOC finale e il
-motivo dell'arresto, poi l'attività viene chiusa automaticamente. Se il SOC è
-obsoleto, il conto alla rovescia viene nascosto invece di mostrare una stima
-inaffidabile.
+Gli aggiornamenti intermedi sono silenziosi e usano la stessa attività. La vista
+compatta mostra il SOC con icona batteria, una barra percentuale, la modalità,
+il target attivo e l'ora di fine stimata. Il target è quello utente in F3 e
+quello veicolo in Solare e Forza. Se il SOC o la stima non sono disponibili,
+l'integrazione omette soltanto il dato mancante.
+
+Alla conclusione viene mostrato il SOC finale e il motivo dell'arresto. Dalla
+configurazione iniziale o dalle opzioni si può scegliere se mantenere la Live
+Activity fino alla rimozione manuale, chiuderla immediatamente oppure cancellarla
+automaticamente dopo un intervallo da 1 a 480 minuti, predefinito a 60 minuti.
 
 Apple consente a una Live Activity di restare attiva per un massimo di 8 ore.
 Scaduto questo limite viene rimossa subito dalla Dynamic Island, ma può rimanere

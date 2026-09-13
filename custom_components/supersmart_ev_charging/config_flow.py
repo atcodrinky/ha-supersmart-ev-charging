@@ -58,6 +58,8 @@ from .const import (
     CONF_LIVE_ACTIVITY_TITLE,
     CONF_LIVE_ACTIVITY_DASHBOARD_URL,
     CONF_LIVE_ACTIVITY_SOC_STEP,
+    CONF_LIVE_ACTIVITY_END_BEHAVIOR,
+    CONF_LIVE_ACTIVITY_CLEAR_MINUTES,
     CONF_WALLBOX_MODE_ENTITY,
     DEFAULT_CONTRACT_POWER_W,
     DEFAULT_BATTERY_CAPACITY_KWH,
@@ -75,6 +77,10 @@ from .const import (
     DEFAULT_USER_SOC_TARGET,
     DEFAULT_VEHICLE_SOC_TARGET,
     DEFAULT_LIVE_ACTIVITY_SOC_STEP,
+    DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
+    LIVE_ACTIVITY_END_AUTOMATIC,
+    LIVE_ACTIVITY_END_IMMEDIATE,
+    LIVE_ACTIVITY_END_MANUAL,
     NOTIFICATION_LANGUAGE_AUTO,
     NOTIFICATION_LANGUAGE_EN,
     NOTIFICATION_LANGUAGE_IT,
@@ -153,9 +159,35 @@ def _valid_mobile_app_services(services: list[str]) -> bool:
 def _live_soc_step_selector() -> selector.NumberSelector:
     return selector.NumberSelector(
         selector.NumberSelectorConfig(
-            min=5,
+            min=1,
             max=25,
-            step=5,
+            step=1,
+            mode=selector.NumberSelectorMode.BOX,
+        )
+    )
+
+
+def _live_end_behavior_selector() -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                LIVE_ACTIVITY_END_MANUAL,
+                LIVE_ACTIVITY_END_IMMEDIATE,
+                LIVE_ACTIVITY_END_AUTOMATIC,
+            ],
+            translation_key="live_activity_end_behavior",
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _live_clear_minutes_selector() -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=1,
+            max=480,
+            step=1,
+            unit_of_measurement="min",
             mode=selector.NumberSelectorMode.BOX,
         )
     )
@@ -466,6 +498,20 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         DEFAULT_LIVE_ACTIVITY_SOC_STEP,
                     ),
                 ): _live_soc_step_selector(),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_END_BEHAVIOR,
+                    default=self._data.get(
+                        CONF_LIVE_ACTIVITY_END_BEHAVIOR,
+                        LIVE_ACTIVITY_END_AUTOMATIC,
+                    ),
+                ): _live_end_behavior_selector(),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_CLEAR_MINUTES,
+                    default=self._data.get(
+                        CONF_LIVE_ACTIVITY_CLEAR_MINUTES,
+                        DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
+                    ),
+                ): _live_clear_minutes_selector(),
                 vol.Optional(
                     CONF_LIVE_ACTIVITY_DASHBOARD_URL,
                     default=self._data.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, ""),
@@ -724,6 +770,20 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                         DEFAULT_LIVE_ACTIVITY_SOC_STEP,
                     ),
                 ): _live_soc_step_selector(),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_END_BEHAVIOR,
+                    default=d.get(
+                        CONF_LIVE_ACTIVITY_END_BEHAVIOR,
+                        LIVE_ACTIVITY_END_AUTOMATIC,
+                    ),
+                ): _live_end_behavior_selector(),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_CLEAR_MINUTES,
+                    default=d.get(
+                        CONF_LIVE_ACTIVITY_CLEAR_MINUTES,
+                        DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
+                    ),
+                ): _live_clear_minutes_selector(),
                 vol.Optional(
                     CONF_LIVE_ACTIVITY_DASHBOARD_URL,
                     default=d.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, ""),

@@ -66,6 +66,8 @@
           "live_activity_services": "Companion App phones",
           "live_activity_title": "Vehicle name / displayed title",
           "live_activity_soc_step": "Update for each SOC change (%)",
+          "live_activity_end_behavior": "End-of-charge behavior",
+          "live_activity_clear_minutes": "Automatically clear after (minutes)",
           "live_activity_dashboard_url": "Dashboard link (optional)"
         }
       },
@@ -146,6 +148,8 @@
           "live_activity_services": "Companion App phones",
           "live_activity_title": "Vehicle name / displayed title",
           "live_activity_soc_step": "Update for each SOC change (%)",
+          "live_activity_end_behavior": "End-of-charge behavior",
+          "live_activity_clear_minutes": "Automatically clear after (minutes)",
           "live_activity_dashboard_url": "Dashboard link (optional)"
         }
       }
@@ -162,6 +166,13 @@
         "auto": "Automatic – Home Assistant language",
         "it": "Italian",
         "en": "English"
+      }
+    },
+    "live_activity_end_behavior": {
+      "options": {
+        "manual": "Keep until manually dismissed",
+        "immediate": "Close immediately",
+        "automatic": "Clear automatically"
       }
     }
   },

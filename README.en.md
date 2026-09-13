@@ -29,7 +29,7 @@ equivalent entities and commands.
 | 🛑 **Master Stop** | Immediately revokes authorization and blocks every charging mode |
 | 🔄 **SOC synchronization** | Synchronizes the vehicle target with the car charge limit when configured |
 | ⏱️ **Charging estimates** | Calculates remaining time and completion time from SOC, usable capacity and actual power |
-| 📱 **Live Activity / Live Update** | Shows SOC, target, mode, power and remaining time on the Lock Screen |
+| 📱 **Live Activity / Live Update** | Shows SOC, target, mode and estimated finish time on the Lock Screen |
 | 📡 **Configurable MQTT** | Configurable topics, payloads and telemetry; HA buttons can authorize and revoke |
 | 🛡️ **Operational safeguards** | Input validation, PV hysteresis, minimum current, maximum limits and command anti-spam |
 
@@ -138,15 +138,20 @@ but can be edited separately, for example `Škoda Elroq`, `Tesla Model 3`, or
 `Marco's car`.
 
 You can select one or more direct `notify.mobile_app_*` services, the displayed
-name, an SOC update threshold in 5% increments, and an optional dashboard link.
+name, an SOC update threshold from 1% to 25% (5% by default), and an optional dashboard link.
 Relative paths such as `/lovelace/ev` and full HTTPS addresses are accepted.
 Tapping the activity opens that page directly.
 
-Intermediate updates are silent and reuse the same activity. They are sent when
-the SOC band, charging mode, or target changes and when the estimated finish
-moves significantly. At the end, the final SOC and stop reason are displayed
-before the activity closes automatically. If the SOC is stale, the countdown is
-hidden instead of showing an unreliable estimate.
+Intermediate updates are silent and reuse the same activity. The compact view
+shows SOC with a battery icon, a percentage progress bar, charging mode, active
+target, and estimated finish time. The user target is used during off-peak
+charging; Solar and Force use the vehicle target. If SOC or the estimate is not
+available, only the missing value is omitted.
+
+At the end, the final SOC and stop reason are displayed. During initial setup or
+later in Options, you can keep the Live Activity until it is manually dismissed,
+close it immediately, or clear it automatically after 1 to 480 minutes (60
+minutes by default).
 
 Apple allows a Live Activity to remain active for up to 8 hours. It is then
 removed immediately from the Dynamic Island, but may remain on the Lock Screen

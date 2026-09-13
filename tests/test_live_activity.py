@@ -44,6 +44,7 @@ class LiveActivityTests(unittest.TestCase):
         self.assertEqual(payload["title"], "Škoda Elroq")
         self.assertEqual(payload["data"]["progress"], 45)
         self.assertEqual(payload["data"]["progress_max"], 100)
+        self.assertEqual(payload["data"]["critical_text"], "🔋 45%")
         self.assertEqual(payload["data"]["when"], 8100)
         self.assertEqual(payload["data"]["url"], "/lovelace/auto")
         self.assertTrue(payload["data"]["live_update"])

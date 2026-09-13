@@ -66,6 +66,8 @@
           "live_activity_services": "Telefoni Companion App",
           "live_activity_title": "Nome auto / titolo mostrato",
           "live_activity_soc_step": "Aggiorna ogni variazione SOC (%)",
+          "live_activity_end_behavior": "Comportamento a fine ricarica",
+          "live_activity_clear_minutes": "Cancella automaticamente dopo (minuti)",
           "live_activity_dashboard_url": "Collegamento alla plancia (facoltativo)"
         }
       },
@@ -146,6 +148,8 @@
           "live_activity_services": "Telefoni Companion App",
           "live_activity_title": "Nome auto / titolo mostrato",
           "live_activity_soc_step": "Aggiorna ogni variazione SOC (%)",
+          "live_activity_end_behavior": "Comportamento a fine ricarica",
+          "live_activity_clear_minutes": "Cancella automaticamente dopo (minuti)",
           "live_activity_dashboard_url": "Collegamento alla plancia (facoltativo)"
         }
       }
@@ -162,6 +166,13 @@
         "auto": "Automatica – lingua di Home Assistant",
         "it": "Italiano",
         "en": "Inglese"
+      }
+    },
+    "live_activity_end_behavior": {
+      "options": {
+        "manual": "Mantieni fino alla rimozione manuale",
+        "immediate": "Chiudi immediatamente",
+        "automatic": "Cancella automaticamente"
       }
     }
   },

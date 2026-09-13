@@ -49,7 +49,7 @@ def build_live_payload(
     }
     if soc is not None:
         nested.update({
-            "critical_text": f"{soc}%",
+            "critical_text": f"🔋 {soc}%",
             "progress": min(100, max(0, int(soc))),
             "progress_max": 100,
         })
