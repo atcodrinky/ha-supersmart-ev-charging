@@ -66,6 +66,21 @@ class LiveActivityTests(unittest.TestCase):
         self.assertNotIn("chronometer", payload["data"])
         self.assertNotIn("silent", payload["data"])
 
+    def test_custom_critical_text_is_used(self) -> None:
+        payload = live_activity.build_live_payload(
+            title="Škoda Elroq",
+            message="💪 MAX · 🎯 80%\n🕒 12:45",
+            tag="supersmart_ev_entry",
+            soc=63,
+            target=80,
+            mode="forza",
+            remaining_minutes=None,
+            dashboard_url="",
+            silent=False,
+            critical_text="Batteria 63%",
+        )
+        self.assertEqual(payload["data"]["critical_text"], "Batteria 63%")
+
     def test_end_time_threshold(self) -> None:
         initial = datetime(2026, 9, 13, 12, tzinfo=timezone.utc)
         self.assertFalse(

@@ -150,8 +150,46 @@
           "live_activity_soc_step": "Aggiorna ogni variazione SOC (%)",
           "live_activity_end_behavior": "Comportamento a fine ricarica",
           "live_activity_clear_minutes": "Cancella automaticamente dopo (minuti)",
+          "live_activity_customize": "Personalizza i messaggi Live Activity",
           "live_activity_dashboard_url": "Collegamento alla plancia (facoltativo)"
         }
+      },
+      "live_activity_messages": {
+        "title": "SuperSmart EV Charging – Testi Live Activity",
+        "menu_options": {
+          "live_activity_charging_messages": "Messaggi durante la ricarica",
+          "live_activity_stop_messages": "Messaggi di arresto",
+          "live_activity_messages_done": "↩ Torna alle opzioni"
+        }
+      },
+      "live_activity_charging_messages": {
+        "title": "Messaggi Live Activity – Ricarica",
+        "description": "Variabili disponibili: {placeholders}. Gli a capo inseriti nei campi vengono mantenuti.",
+        "data": {
+          "live_message_pv": "Ricarica FV",
+          "live_message_night": "Ricarica F3",
+          "live_message_force": "Forza Ricarica",
+          "live_message_unknown": "Modalità non identificata",
+          "live_message_no_soc": "SOC non disponibile",
+          "live_critical_text": "SOC in alto a destra"
+        }
+      },
+      "live_activity_stop_messages": {
+        "title": "Messaggi Live Activity – Arresto",
+        "description": "Variabili disponibili: {placeholders}. Gli a capo inseriti nei campi vengono mantenuti.",
+        "data": {
+          "live_stop_none": "Conclusione generica",
+          "live_stop_master": "Master Stop",
+          "live_stop_vehicle_target": "Target veicolo raggiunto",
+          "live_stop_user_target": "Target utente raggiunto",
+          "live_stop_low_power": "Potenza insufficiente",
+          "live_stop_pv_lost": "FV insufficiente",
+          "live_stop_external": "Arresto dalla wallbox",
+          "live_stop_manual": "Arresto manuale"
+        }
+      },
+      "live_activity_messages_done": {
+        "title": "Torna alle opzioni"
       }
     },
     "error": {

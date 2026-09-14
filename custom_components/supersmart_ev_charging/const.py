@@ -49,6 +49,40 @@ CONF_LIVE_ACTIVITY_DASHBOARD_URL = "live_activity_dashboard_url"
 CONF_LIVE_ACTIVITY_SOC_STEP      = "live_activity_soc_step"
 CONF_LIVE_ACTIVITY_END_BEHAVIOR  = "live_activity_end_behavior"
 CONF_LIVE_ACTIVITY_CLEAR_MINUTES = "live_activity_clear_minutes"
+CONF_LIVE_ACTIVITY_CUSTOMIZE     = "live_activity_customize"
+CONF_LIVE_MESSAGE_PV             = "live_message_pv"
+CONF_LIVE_MESSAGE_NIGHT          = "live_message_night"
+CONF_LIVE_MESSAGE_FORCE          = "live_message_force"
+CONF_LIVE_MESSAGE_UNKNOWN        = "live_message_unknown"
+CONF_LIVE_MESSAGE_NO_SOC         = "live_message_no_soc"
+CONF_LIVE_CRITICAL_TEXT          = "live_critical_text"
+CONF_LIVE_STOP_NONE              = "live_stop_none"
+CONF_LIVE_STOP_MASTER            = "live_stop_master"
+CONF_LIVE_STOP_VEHICLE_TARGET    = "live_stop_vehicle_target"
+CONF_LIVE_STOP_USER_TARGET       = "live_stop_user_target"
+CONF_LIVE_STOP_LOW_POWER         = "live_stop_low_power"
+CONF_LIVE_STOP_PV_LOST           = "live_stop_pv_lost"
+CONF_LIVE_STOP_EXTERNAL          = "live_stop_external"
+CONF_LIVE_STOP_MANUAL            = "live_stop_manual"
+
+LIVE_CHARGING_TEMPLATE_KEYS = (
+    CONF_LIVE_MESSAGE_PV,
+    CONF_LIVE_MESSAGE_NIGHT,
+    CONF_LIVE_MESSAGE_FORCE,
+    CONF_LIVE_MESSAGE_UNKNOWN,
+    CONF_LIVE_MESSAGE_NO_SOC,
+    CONF_LIVE_CRITICAL_TEXT,
+)
+LIVE_STOP_TEMPLATE_KEYS = (
+    CONF_LIVE_STOP_NONE,
+    CONF_LIVE_STOP_MASTER,
+    CONF_LIVE_STOP_VEHICLE_TARGET,
+    CONF_LIVE_STOP_USER_TARGET,
+    CONF_LIVE_STOP_LOW_POWER,
+    CONF_LIVE_STOP_PV_LOST,
+    CONF_LIVE_STOP_EXTERNAL,
+    CONF_LIVE_STOP_MANUAL,
+)
 
 DEFAULT_LIVE_ACTIVITY_SOC_STEP = 5
 LIVE_ACTIVITY_MIN_UPDATE_SECONDS = 300

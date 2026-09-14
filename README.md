@@ -147,7 +147,8 @@ direttamente quella pagina.
 
 Gli aggiornamenti intermedi sono silenziosi e usano la stessa attività. La vista
 compatta mostra il SOC con icona batteria, una barra percentuale, la modalità,
-il target attivo e l'ora di fine stimata. Il target è quello utente in F3 e
+il target attivo e l'ora di fine stimata su due righe. I testi predefiniti sono
+`☀️ FV`, `🌙 F3` e `💪 MAX`. Il target è quello utente in F3 e
 quello veicolo in Solare e Forza. Se il SOC o la stima non sono disponibili,
 l'integrazione omette soltanto il dato mancante.
 
@@ -155,6 +156,12 @@ Alla conclusione viene mostrato il SOC finale e il motivo dell'arresto. Dalla
 configurazione iniziale o dalle opzioni si può scegliere se mantenere la Live
 Activity fino alla rimozione manuale, chiuderla immediatamente oppure cancellarla
 automaticamente dopo un intervallo da 1 a 480 minuti, predefinito a 60 minuti.
+
+Dalle opzioni Live Activity si possono inoltre personalizzare tutti i messaggi
+di ricarica e arresto, le emoji, gli a capo e il testo SOC in alto a destra.
+Sono disponibili le variabili `{instance}`, `{mode}`, `{soc}`, `{target}`,
+`{charge_end_time}` e `{reason}`. I campi non personalizzati continuano a usare
+i valori predefiniti localizzati in italiano o inglese.
 
 Apple consente a una Live Activity di restare attiva per un massimo di 8 ore.
 Scaduto questo limite viene rimossa subito dalla Dynamic Island, ma può rimanere

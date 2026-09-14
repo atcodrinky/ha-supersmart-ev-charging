@@ -60,6 +60,23 @@ from .const import (
     CONF_LIVE_ACTIVITY_SOC_STEP,
     CONF_LIVE_ACTIVITY_END_BEHAVIOR,
     CONF_LIVE_ACTIVITY_CLEAR_MINUTES,
+    CONF_LIVE_ACTIVITY_CUSTOMIZE,
+    CONF_LIVE_CRITICAL_TEXT,
+    CONF_LIVE_MESSAGE_FORCE,
+    CONF_LIVE_MESSAGE_NIGHT,
+    CONF_LIVE_MESSAGE_NO_SOC,
+    CONF_LIVE_MESSAGE_PV,
+    CONF_LIVE_MESSAGE_UNKNOWN,
+    CONF_LIVE_STOP_EXTERNAL,
+    CONF_LIVE_STOP_LOW_POWER,
+    CONF_LIVE_STOP_MANUAL,
+    CONF_LIVE_STOP_MASTER,
+    CONF_LIVE_STOP_NONE,
+    CONF_LIVE_STOP_PV_LOST,
+    CONF_LIVE_STOP_USER_TARGET,
+    CONF_LIVE_STOP_VEHICLE_TARGET,
+    LIVE_CHARGING_TEMPLATE_KEYS,
+    LIVE_STOP_TEMPLATE_KEYS,
     CONF_WALLBOX_MODE_ENTITY,
     DEFAULT_CONTRACT_POWER_W,
     DEFAULT_BATTERY_CAPACITY_KWH,
@@ -215,6 +232,17 @@ def _validate_message_fields(user_input: dict[str, Any]) -> bool:
             CONF_NOTIFY_STOP_TITLE,
             CONF_NOTIFY_STOP_MESSAGE,
         ):
+            validate_notification_template(str(user_input[key]))
+    except (KeyError, ValueError):
+        return False
+    return True
+
+
+def _validate_live_message_fields(
+    user_input: dict[str, Any], keys: tuple[str, ...]
+) -> bool:
+    try:
+        for key in keys:
             validate_notification_template(str(user_input[key]))
     except (KeyError, ValueError):
         return False
@@ -744,6 +772,8 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                     user_input.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, "")
                 ).strip()
                 self._pending.update(user_input)
+                if enabled and user_input.get(CONF_LIVE_ACTIVITY_CUSTOMIZE):
+                    return await self.async_step_live_activity_messages()
                 return await self.async_step_init()
 
         return self.async_show_form(
@@ -784,6 +814,10 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                         DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
                     ),
                 ): _live_clear_minutes_selector(),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_CUSTOMIZE,
+                    default=d.get(CONF_LIVE_ACTIVITY_CUSTOMIZE, False),
+                ): selector.BooleanSelector(),
                 vol.Optional(
                     CONF_LIVE_ACTIVITY_DASHBOARD_URL,
                     default=d.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, ""),
@@ -792,6 +826,82 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
             description_placeholders={"instance": self._config_entry.title},
         )
+
+    async def async_step_live_activity_messages(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Open the Live Activity message customization submenu."""
+        return self.async_show_menu(
+            step_id="live_activity_messages",
+            menu_options=[
+                "live_activity_charging_messages",
+                "live_activity_stop_messages",
+                "live_activity_messages_done",
+            ],
+        )
+
+    def _live_defaults(self) -> dict[str, Any]:
+        values = self._values()
+        return notification_defaults(
+            values.get(CONF_NOTIFICATION_LANGUAGE, NOTIFICATION_LANGUAGE_AUTO),
+            self.hass.config.language,
+        )["live_templates"]
+
+    async def async_step_live_activity_charging_messages(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Edit messages displayed while charging."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if _validate_live_message_fields(user_input, LIVE_CHARGING_TEMPLATE_KEYS):
+                self._pending.update(user_input)
+                return await self.async_step_live_activity_messages()
+            errors["base"] = "invalid_notification_template"
+        values = user_input or self._values()
+        defaults = self._live_defaults()
+        return self.async_show_form(
+            step_id="live_activity_charging_messages",
+            data_schema=vol.Schema({
+                vol.Required(key, default=values.get(key) or defaults[key]):
+                    selector.TextSelector(selector.TextSelectorConfig(multiline=True))
+                for key in LIVE_CHARGING_TEMPLATE_KEYS
+            }),
+            errors=errors,
+            description_placeholders={
+                "placeholders": "{instance}, {mode}, {soc}, {target}, {charge_end_time}"
+            },
+        )
+
+    async def async_step_live_activity_stop_messages(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Edit messages displayed after charging stops."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if _validate_live_message_fields(user_input, LIVE_STOP_TEMPLATE_KEYS):
+                self._pending.update(user_input)
+                return await self.async_step_live_activity_messages()
+            errors["base"] = "invalid_notification_template"
+        values = user_input or self._values()
+        defaults = self._live_defaults()
+        return self.async_show_form(
+            step_id="live_activity_stop_messages",
+            data_schema=vol.Schema({
+                vol.Required(key, default=values.get(key) or defaults[key]):
+                    selector.TextSelector(selector.TextSelectorConfig(multiline=True))
+                for key in LIVE_STOP_TEMPLATE_KEYS
+            }),
+            errors=errors,
+            description_placeholders={
+                "placeholders": "{instance}, {mode}, {soc}, {target}, {reason}"
+            },
+        )
+
+    async def async_step_live_activity_messages_done(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Return to the main options menu while preserving the draft."""
+        return await self.async_step_init()
 
     async def async_step_save_and_close(
         self, user_input: dict[str, Any] | None = None

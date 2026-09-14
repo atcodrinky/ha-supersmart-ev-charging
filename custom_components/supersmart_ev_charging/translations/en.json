@@ -150,8 +150,46 @@
           "live_activity_soc_step": "Update for each SOC change (%)",
           "live_activity_end_behavior": "End-of-charge behavior",
           "live_activity_clear_minutes": "Automatically clear after (minutes)",
+          "live_activity_customize": "Customize Live Activity messages",
           "live_activity_dashboard_url": "Dashboard link (optional)"
         }
+      },
+      "live_activity_messages": {
+        "title": "SuperSmart EV Charging – Live Activity text",
+        "menu_options": {
+          "live_activity_charging_messages": "Messages while charging",
+          "live_activity_stop_messages": "Stop messages",
+          "live_activity_messages_done": "↩ Back to options"
+        }
+      },
+      "live_activity_charging_messages": {
+        "title": "Live Activity messages – Charging",
+        "description": "Available placeholders: {placeholders}. Line breaks entered in the fields are preserved.",
+        "data": {
+          "live_message_pv": "PV charging",
+          "live_message_night": "Off-peak charging",
+          "live_message_force": "Force Charge",
+          "live_message_unknown": "Unknown mode",
+          "live_message_no_soc": "SOC unavailable",
+          "live_critical_text": "Top-right SOC"
+        }
+      },
+      "live_activity_stop_messages": {
+        "title": "Live Activity messages – Stop",
+        "description": "Available placeholders: {placeholders}. Line breaks entered in the fields are preserved.",
+        "data": {
+          "live_stop_none": "Generic completion",
+          "live_stop_master": "Master Stop",
+          "live_stop_vehicle_target": "Vehicle target reached",
+          "live_stop_user_target": "User target reached",
+          "live_stop_low_power": "Insufficient power",
+          "live_stop_pv_lost": "Insufficient PV",
+          "live_stop_external": "Stopped by wallbox",
+          "live_stop_manual": "Manual stop"
+        }
+      },
+      "live_activity_messages_done": {
+        "title": "Back to options"
       }
     },
     "error": {

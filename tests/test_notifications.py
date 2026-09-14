@@ -60,14 +60,17 @@ class NotificationTests(unittest.TestCase):
             "Charging stopped manually",
         )
         self.assertEqual(italian["live_modes"]["notturna_f3"], "🌙 F3")
-        self.assertEqual(english["live_modes"]["fv_surplus"], "☀️ Solar")
+        self.assertEqual(english["live_modes"]["fv_surplus"], "☀️ PV")
         self.assertEqual(
-            italian["live_charging"].format(
-                mode=italian["live_modes"]["forza"],
+            italian["live_templates"]["live_message_force"].format(
                 target=80,
                 charge_end_time="22:01",
             ),
-            "⚡ Forza · 🎯 80% · 22:01",
+            "💪 MAX · 🎯 80%\n🕒 22:01",
+        )
+        self.assertEqual(
+            italian["live_templates"]["live_stop_pv_lost"],
+            "☁️ FV insufficiente",
         )
 
     def test_custom_template_renders_supported_values(self) -> None:
@@ -97,6 +100,20 @@ class NotificationTests(unittest.TestCase):
             notifications.render_notification_template("{{SOC}} {soc}%", {"soc": 50}),
             "{SOC} 50%",
         )
+
+    def test_live_reason_placeholder_is_supported(self) -> None:
+        self.assertEqual(
+            notifications.render_notification_template(
+                "⏹️ {reason}", {"reason": "Comando manuale"}
+            ),
+            "⏹️ Comando manuale",
+        )
+
+    def test_all_localized_live_templates_are_valid(self) -> None:
+        for language in ("it", "en"):
+            defaults = notifications.notification_defaults(language, language)
+            for template in defaults["live_templates"].values():
+                notifications.validate_notification_template(template)
 
 
 if __name__ == "__main__":

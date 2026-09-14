@@ -69,6 +69,23 @@ from .const import (
     CONF_LIVE_ACTIVITY_SOC_STEP,
     CONF_LIVE_ACTIVITY_END_BEHAVIOR,
     CONF_LIVE_ACTIVITY_CLEAR_MINUTES,
+    CONF_LIVE_ACTIVITY_CUSTOMIZE,
+    CONF_LIVE_CRITICAL_TEXT,
+    CONF_LIVE_MESSAGE_FORCE,
+    CONF_LIVE_MESSAGE_NIGHT,
+    CONF_LIVE_MESSAGE_NO_SOC,
+    CONF_LIVE_MESSAGE_PV,
+    CONF_LIVE_MESSAGE_UNKNOWN,
+    CONF_LIVE_STOP_EXTERNAL,
+    CONF_LIVE_STOP_LOW_POWER,
+    CONF_LIVE_STOP_MANUAL,
+    CONF_LIVE_STOP_MASTER,
+    CONF_LIVE_STOP_NONE,
+    CONF_LIVE_STOP_PV_LOST,
+    CONF_LIVE_STOP_USER_TARGET,
+    CONF_LIVE_STOP_VEHICLE_TARGET,
+    LIVE_CHARGING_TEMPLATE_KEYS,
+    LIVE_STOP_TEMPLATE_KEYS,
     CONF_WALLBOX_MODE_ENTITY,
     CONF_INITIAL_USER_SOC_TARGET,
     CONF_INITIAL_VEHICLE_SOC_TARGET,
@@ -264,6 +281,12 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
             )
         )
+        self._live_activity_customize = bool(
+            d.get(CONF_LIVE_ACTIVITY_CUSTOMIZE, False)
+        )
+        self._live_activity_templates = {
+            key: d.get(key) for key in (*LIVE_CHARGING_TEMPLATE_KEYS, *LIVE_STOP_TEMPLATE_KEYS)
+        }
 
         # ── Power / capacity
         self._contract_power_w: float     = d.get(CONF_CONTRACT_POWER_W,     DEFAULT_CONTRACT_POWER_W)
@@ -1316,19 +1339,34 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         soc = int(float(data.get("vehicle_soc", 0))) if soc_valid else None
         target = int(data.get("target_soc_active", self.user_soc_target))
         end_time = data.get("charge_end_time")
+        charge_end_time = (
+            dt_util.as_local(end_time).strftime("%H:%M")
+            if isinstance(end_time, datetime)
+            else "—"
+        )
+        context = {
+            "instance": self.entry.title,
+            "mode": mode_label,
+            "soc": soc if soc is not None else "—",
+            "target": target,
+            "time_remaining": "—",
+            "charge_end_time": charge_end_time,
+            "reason": "",
+        }
         if soc_valid:
-            if isinstance(end_time, datetime):
-                message = defaults["live_charging"].format(
-                    mode=mode_label,
-                    target=target,
-                    charge_end_time=dt_util.as_local(end_time).strftime("%H:%M"),
-                )
-            else:
-                message = defaults["live_charging_no_end"].format(
-                    mode=mode_label, target=target
-                )
+            template_key = {
+                "fv_surplus": CONF_LIVE_MESSAGE_PV,
+                "notturna_f3": CONF_LIVE_MESSAGE_NIGHT,
+                "forza": CONF_LIVE_MESSAGE_FORCE,
+            }.get(mode, CONF_LIVE_MESSAGE_UNKNOWN)
         else:
-            message = defaults["live_soc_stale"].format(mode=mode_label)
+            template_key = CONF_LIVE_MESSAGE_NO_SOC
+        message = self._render_live_template(template_key, context, defaults)
+        critical_text = (
+            self._render_live_template(CONF_LIVE_CRITICAL_TEXT, context, defaults)
+            if soc_valid
+            else None
+        )
         payload = build_live_payload(
             title=self._live_activity_title,
             message=message,
@@ -1339,6 +1377,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             remaining_minutes=None,
             dashboard_url=self._live_activity_dashboard_url,
             silent=silent,
+            critical_text=critical_text,
         )
         await self._notify_services_call(self._live_activity_services, payload)
         self._live_activity_active = True
@@ -1374,12 +1413,27 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self.last_stop_reason,
             defaults["stop_reasons"][STOP_REASON_NONE],
         )
+        context = {
+            "instance": self.entry.title,
+            "mode": defaults["live_modes"].get(mode, defaults["live_modes"]["sconosciuta"]),
+            "soc": soc if soc is not None else "—",
+            "target": target,
+            "time_remaining": "—",
+            "charge_end_time": "—",
+            "reason": reason,
+        }
+        stop_template_key = {
+            STOP_REASON_MASTER_STOP: CONF_LIVE_STOP_MASTER,
+            STOP_REASON_VEHICLE_TARGET: CONF_LIVE_STOP_VEHICLE_TARGET,
+            STOP_REASON_USER_TARGET: CONF_LIVE_STOP_USER_TARGET,
+            STOP_REASON_LOW_POWER: CONF_LIVE_STOP_LOW_POWER,
+            STOP_REASON_PV_LOST: CONF_LIVE_STOP_PV_LOST,
+            STOP_REASON_EXTERNAL: CONF_LIVE_STOP_EXTERNAL,
+            STOP_REASON_MANUAL: CONF_LIVE_STOP_MANUAL,
+        }.get(self.last_stop_reason, CONF_LIVE_STOP_NONE)
         payload = build_live_payload(
             title=self._live_activity_title,
-            message=defaults["live_completed"].format(
-                soc=soc if soc is not None else "—",
-                reason=reason,
-            ),
+            message=self._render_live_template(stop_template_key, context, defaults),
             tag=self._live_activity_tag,
             soc=soc,
             target=target,
@@ -1387,6 +1441,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             remaining_minutes=None,
             dashboard_url=self._live_activity_dashboard_url,
             silent=False,
+            critical_text=(
+                self._render_live_template(CONF_LIVE_CRITICAL_TEXT, context, defaults)
+                if soc is not None
+                else None
+            ),
         )
         await self._notify_services_call(self._live_activity_services, payload)
         self._live_activity_active = False
@@ -1399,6 +1458,19 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self._clear_live_activity_after_delay()
             )
         self._schedule_save()
+
+    def _render_live_template(
+        self, key: str, context: dict[str, Any], defaults: dict[str, Any]
+    ) -> str:
+        """Render a custom Live Activity message or its localized default."""
+        template = defaults["live_templates"][key]
+        if self._live_activity_customize:
+            template = self._live_activity_templates.get(key) or template
+        try:
+            return render_notification_template(template, context)
+        except ValueError:
+            _LOGGER.warning("Template Live Activity non valido; uso il testo predefinito")
+            return render_notification_template(defaults["live_templates"][key], context)
 
     async def _clear_live_activity_after_delay(self) -> None:
         task = asyncio.current_task()

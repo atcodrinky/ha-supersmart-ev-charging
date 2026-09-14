@@ -144,7 +144,8 @@ Tapping the activity opens that page directly.
 
 Intermediate updates are silent and reuse the same activity. The compact view
 shows SOC with a battery icon, a percentage progress bar, charging mode, active
-target, and estimated finish time. The user target is used during off-peak
+target, and estimated finish time on two lines. Default labels are `☀️ PV`,
+`🌙 Off-peak`, and `💪 MAX`. The user target is used during off-peak
 charging; Solar and Force use the vehicle target. If SOC or the estimate is not
 available, only the missing value is omitted.
 
@@ -152,6 +153,12 @@ At the end, the final SOC and stop reason are displayed. During initial setup or
 later in Options, you can keep the Live Activity until it is manually dismissed,
 close it immediately, or clear it automatically after 1 to 480 minutes (60
 minutes by default).
+
+The Live Activity options also let users customize every charging and stop
+message, emoji, line break, and the top-right SOC text. Available placeholders
+are `{instance}`, `{mode}`, `{soc}`, `{target}`, `{charge_end_time}`, and
+`{reason}`. Fields that are not customized keep their localized Italian or
+English defaults.
 
 Apple allows a Live Activity to remain active for up to 8 hours. It is then
 removed immediately from the Dynamic Island, but may remain on the Lock Screen

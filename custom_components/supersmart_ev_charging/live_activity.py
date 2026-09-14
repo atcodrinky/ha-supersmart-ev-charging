@@ -36,6 +36,7 @@ def build_live_payload(
     remaining_minutes: float | None,
     dashboard_url: str,
     silent: bool,
+    critical_text: str | None = None,
 ) -> dict[str, Any]:
     """Return the notify payload shared by iOS and Android Companion Apps."""
     color = MODE_COLORS.get(mode, MODE_COLORS["sconosciuta"])
@@ -49,7 +50,7 @@ def build_live_payload(
     }
     if soc is not None:
         nested.update({
-            "critical_text": f"🔋 {soc}%",
+            "critical_text": critical_text or f"🔋 {soc}%",
             "progress": min(100, max(0, int(soc))),
             "progress_max": 100,
         })
