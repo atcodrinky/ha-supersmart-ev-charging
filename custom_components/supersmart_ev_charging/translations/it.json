@@ -105,6 +105,7 @@
         "description": "Configurazione: {instance}. Le modifiche restano in bozza finché non selezioni Salva ed esci.",
         "menu_options": {
           "general": "Impostazioni generali",
+          "entities": "Entità e sensori",
           "notifications": "Notifiche",
           "live_activity": "Live Activity / Live Update",
           "save_and_close": "✅ Salva ed esci"
@@ -118,6 +119,26 @@
           "tariff_enabled": "Abilita ricarica off-peak F3",
           "mqtt_enabled": "Abilita MQTT",
           "energy_publish_enabled": "Invia telemetria energia alla Prism"
+        }
+      },
+      "entities": {
+        "title": "SuperSmart EV Charging – Entità e sensori",
+        "description": "Sostituisci le sorgenti usate dall'integrazione. Esegui questa operazione a ricarica ferma. Le modifiche vengono applicate con Salva ed esci ricaricando soltanto questa istanza: non serve riavviare Home Assistant.",
+        "data": {
+          "vehicle_soc_entity": "* Sensore SOC veicolo",
+          "vehicle_connected_entity": "Connessione veicolo opzionale",
+          "vehicle_charge_limit_entity": "Limite di carica veicolo opzionale",
+          "grid_power_entity": "* Sensore potenza rete (W, positivo = import)",
+          "pv_power_entity": "* Sensore produzione fotovoltaica (W)",
+          "total_power_entity": "Potenza istantanea totale opzionale",
+          "wallbox_state_entity": "* Stato wallbox",
+          "wallbox_power_entity": "* Potenza wallbox (W)",
+          "wallbox_voltage_entity": "Tensione wallbox opzionale (V)",
+          "wallbox_mode_entity": "Modo porta wallbox opzionale",
+          "button_authorize_entity": "Button autorizza ricarica opzionale",
+          "button_revoke_entity": "Button revoca autorizzazione opzionale",
+          "tariff_entity": "* Sensore fascia tariffaria",
+          "tariff_offpeak_value": "Valore fascia off-peak (es. F3)"
         }
       },
       "notifications": {

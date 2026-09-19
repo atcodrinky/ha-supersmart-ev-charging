@@ -105,6 +105,7 @@
         "description": "Configuring: {instance}. Changes remain in draft until you select Save & Close.",
         "menu_options": {
           "general": "General settings",
+          "entities": "Entities and sensors",
           "notifications": "Notifications",
           "live_activity": "Live Activity / Live Update",
           "save_and_close": "✅ Save & Close"
@@ -118,6 +119,26 @@
           "tariff_enabled": "Enable off-peak charging",
           "mqtt_enabled": "Enable MQTT",
           "energy_publish_enabled": "Publish Prism energy telemetry"
+        }
+      },
+      "entities": {
+        "title": "SuperSmart EV Charging – Entities and sensors",
+        "description": "Replace the sources used by the integration. Do this while charging is stopped. Save & Close applies the changes by reloading this instance only; Home Assistant does not need to be restarted.",
+        "data": {
+          "vehicle_soc_entity": "* Vehicle SOC sensor",
+          "vehicle_connected_entity": "Optional vehicle connection entity",
+          "vehicle_charge_limit_entity": "Optional vehicle charge limit",
+          "grid_power_entity": "* Grid power sensor (W, positive = import)",
+          "pv_power_entity": "* PV production sensor (W)",
+          "total_power_entity": "Optional total instantaneous power",
+          "wallbox_state_entity": "* Wallbox state sensor",
+          "wallbox_power_entity": "* Wallbox power (W)",
+          "wallbox_voltage_entity": "Optional wallbox voltage (V)",
+          "wallbox_mode_entity": "Optional wallbox port mode",
+          "button_authorize_entity": "Optional authorize charging button",
+          "button_revoke_entity": "Optional revoke authorization button",
+          "tariff_entity": "* Tariff sensor",
+          "tariff_offpeak_value": "Off-peak tariff value (e.g. F3)"
         }
       },
       "notifications": {

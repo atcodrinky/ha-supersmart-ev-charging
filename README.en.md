@@ -116,6 +116,18 @@ progress-notification fallback.
 When off-peak charging is enabled, also select the tariff sensor and enter the
 value identifying the cheap band, for example `F3`.
 
+### Changing entities after setup
+
+Every source entity selected in Step 2 can later be replaced from **Settings →
+Devices & services → SuperSmart EV Charging → Configure → Entities and
+sensors**. This is useful, for example, when a vehicle integration is replaced
+and exposes its entities under new IDs.
+
+Changing sources while charging is stopped is recommended. Changes remain in
+draft until **Save & Close** is selected: Home Assistant reloads only the
+affected instance, without requiring a full restart. The device, the entities
+created by SuperSmart, and their history are not recreated.
+
 ### Optional step — Notifications
 
 When enabled in the first step, one or more `notify.*` actions can be selected

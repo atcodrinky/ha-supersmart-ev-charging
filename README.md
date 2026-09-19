@@ -118,6 +118,18 @@ avanzamento.
 Se la fascia off-peak è attiva, seleziona anche il sensore tariffario e indica il
 valore che identifica la fascia economica, per esempio `F3`.
 
+### Modificare le entità dopo la configurazione
+
+Tutte le entità sorgente scelte nel Passaggio 2 possono essere sostituite in
+seguito da **Impostazioni → Dispositivi e servizi → SuperSmart EV Charging →
+Configura → Entità e sensori**. È utile, per esempio, quando un'integrazione
+del veicolo viene sostituita e assegna nuovi ID alle sue entità.
+
+Si consiglia di effettuare il cambio a ricarica ferma. Le modifiche rimangono in
+bozza fino alla pressione di **Salva ed esci**: Home Assistant ricarica soltanto
+l'istanza interessata, senza richiedere un riavvio completo. Il dispositivo, le
+entità create da SuperSmart e il relativo storico non vengono ricreati.
+
 ### Passaggio facoltativo — Notifiche
 
 Se abilitate nel primo passaggio, è possibile scegliere da un menu uno o più

@@ -249,6 +249,23 @@ def _validate_live_message_fields(
     return True
 
 
+OPTIONAL_ENTITY_KEYS = (
+    CONF_VEHICLE_CONNECTED_ENTITY,
+    CONF_VEHICLE_CHARGE_LIMIT_ENTITY,
+    CONF_TOTAL_POWER_ENTITY,
+    CONF_WALLBOX_VOLTAGE_ENTITY,
+    CONF_WALLBOX_MODE_ENTITY,
+    CONF_BUTTON_AUTHORIZE_ENTITY,
+    CONF_BUTTON_REVOKE_ENTITY,
+)
+
+
+def _optional_entity_marker(key: str, values: dict[str, Any]) -> vol.Optional:
+    """Create an optional marker that preserves an existing entity selection."""
+    current = values.get(key)
+    return vol.Optional(key, default=current) if current else vol.Optional(key)
+
+
 class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """
     Multi-step config flow for SuperSmart EV Charging:
@@ -309,11 +326,11 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             configured_vehicle_entities = {
-                entry.data.get(CONF_VEHICLE_SOC_ENTITY)
+                {**entry.data, **entry.options}.get(CONF_VEHICLE_SOC_ENTITY)
                 for entry in self._async_current_entries()
             }
             configured_wallbox_entities = {
-                entry.data.get(CONF_WALLBOX_STATE_ENTITY)
+                {**entry.data, **entry.options}.get(CONF_WALLBOX_STATE_ENTITY)
                 for entry in self._async_current_entries()
             }
             if (
@@ -604,11 +621,106 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
             step_id="init",
             menu_options=[
                 "general",
+                "entities",
                 "notifications",
                 "live_activity",
                 "save_and_close",
             ],
             description_placeholders={"instance": self._config_entry.title},
+        )
+
+    def _entity_in_use_by_another_entry(
+        self, vehicle_soc: str | None, wallbox_state: str | None
+    ) -> bool:
+        """Protect against two controllers commanding the same car or wallbox."""
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.entry_id == self._config_entry.entry_id:
+                continue
+            values = {**entry.data, **entry.options}
+            if vehicle_soc and vehicle_soc == values.get(CONF_VEHICLE_SOC_ENTITY):
+                return True
+            if wallbox_state and wallbox_state == values.get(CONF_WALLBOX_STATE_ENTITY):
+                return True
+        return False
+
+    async def async_step_entities(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Replace configured source entities without recreating the entry."""
+        d = self._values()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            if self._entity_in_use_by_another_entry(
+                user_input.get(CONF_VEHICLE_SOC_ENTITY),
+                user_input.get(CONF_WALLBOX_STATE_ENTITY),
+            ):
+                errors["base"] = "vehicle_or_wallbox_already_configured"
+            else:
+                for key in OPTIONAL_ENTITY_KEYS:
+                    user_input.setdefault(key, "")
+                if d.get(CONF_TARIFF_ENABLED, True):
+                    user_input.setdefault(CONF_TARIFF_ENTITY, "")
+                self._pending.update(user_input)
+                return await self.async_step_init()
+
+        schema_fields: dict = {
+            vol.Required(
+                CONF_VEHICLE_SOC_ENTITY,
+                default=d.get(CONF_VEHICLE_SOC_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            _optional_entity_marker(
+                CONF_VEHICLE_CONNECTED_ENTITY, d
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
+            ),
+            _optional_entity_marker(
+                CONF_VEHICLE_CHARGE_LIMIT_ENTITY, d
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["number", "input_number"])
+            ),
+            vol.Required(
+                CONF_GRID_POWER_ENTITY,
+                default=d.get(CONF_GRID_POWER_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            vol.Required(
+                CONF_PV_POWER_ENTITY,
+                default=d.get(CONF_PV_POWER_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            _optional_entity_marker(CONF_TOTAL_POWER_ENTITY, d):
+                selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            vol.Required(
+                CONF_WALLBOX_STATE_ENTITY,
+                default=d.get(CONF_WALLBOX_STATE_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            vol.Required(
+                CONF_WALLBOX_POWER_ENTITY,
+                default=d.get(CONF_WALLBOX_POWER_ENTITY),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            _optional_entity_marker(CONF_WALLBOX_VOLTAGE_ENTITY, d):
+                selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            _optional_entity_marker(CONF_WALLBOX_MODE_ENTITY, d):
+                selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            _optional_entity_marker(CONF_BUTTON_AUTHORIZE_ENTITY, d):
+                selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
+            _optional_entity_marker(CONF_BUTTON_REVOKE_ENTITY, d):
+                selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
+        }
+        if d.get(CONF_TARIFF_ENABLED, True):
+            schema_fields[vol.Required(
+                CONF_TARIFF_ENTITY,
+                default=d.get(CONF_TARIFF_ENTITY),
+            )] = selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor", "input_select"])
+            )
+            schema_fields[vol.Optional(
+                CONF_TARIFF_OFFPEAK_VALUE,
+                default=d.get(CONF_TARIFF_OFFPEAK_VALUE, DEFAULT_TARIFF_OFFPEAK_VALUE),
+            )] = str
+
+        return self.async_show_form(
+            step_id="entities",
+            data_schema=vol.Schema(schema_fields),
+            errors=errors,
         )
 
     def _values(self) -> dict[str, Any]:
