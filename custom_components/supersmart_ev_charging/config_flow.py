@@ -16,6 +16,7 @@ from .const import (
     CONF_INSTANCE_NAME,
     CONF_INITIAL_USER_SOC_TARGET,
     CONF_INITIAL_VEHICLE_SOC_TARGET,
+    CONF_ALLOW_CHARGING_WITHOUT_SOC,
     CONF_CONTRACT_POWER_W,
     CONF_BATTERY_CAPACITY_KWH,
     CONF_VEHICLE_SOC_ENTITY,
@@ -312,6 +313,7 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_BATTERY_CAPACITY_KWH,         default=DEFAULT_BATTERY_CAPACITY_KWH): vol.All(vol.Coerce(float), vol.Range(min=1, max=250)),
                 vol.Required(CONF_INITIAL_USER_SOC_TARGET,      default=DEFAULT_USER_SOC_TARGET):     vol.All(vol.Coerce(int), vol.Range(min=10, max=100)),
                 vol.Required(CONF_INITIAL_VEHICLE_SOC_TARGET,   default=DEFAULT_VEHICLE_SOC_TARGET):  vol.All(vol.Coerce(int), vol.Range(min=20, max=100)),
+                vol.Required(CONF_ALLOW_CHARGING_WITHOUT_SOC,   default=False): bool,
                 vol.Required(CONF_TARIFF_ENABLED,               default=True): bool,
                 vol.Required(CONF_MQTT_ENABLED,                 default=True): bool,
                 vol.Required(CONF_ENERGY_PUBLISH_ENABLED,       default=True): bool,
@@ -763,6 +765,10 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(
                     CONF_ENERGY_PUBLISH_ENABLED,
                     default=d.get(CONF_ENERGY_PUBLISH_ENABLED, True),
+                ): bool,
+                vol.Required(
+                    CONF_ALLOW_CHARGING_WITHOUT_SOC,
+                    default=d.get(CONF_ALLOW_CHARGING_WITHOUT_SOC, False),
                 ): bool,
             }),
         )

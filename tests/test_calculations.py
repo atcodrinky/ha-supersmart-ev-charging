@@ -81,6 +81,16 @@ class CalculationTests(unittest.TestCase):
             calculations.charging_time_minutes(20, 80, 77, 100)
         )
 
+    def test_missing_soc_only_allows_charging_when_explicitly_enabled(self) -> None:
+        self.assertFalse(calculations.soc_below_target(0, False, 50, False))
+        self.assertTrue(calculations.soc_below_target(0, False, 50, True))
+        self.assertTrue(calculations.soc_below_target(40, True, 50, False))
+        self.assertFalse(calculations.soc_below_target(50, True, 50, True))
+
+    def test_missing_soc_never_reports_target_reached(self) -> None:
+        self.assertFalse(calculations.soc_target_reached(100, False, 80))
+        self.assertTrue(calculations.soc_target_reached(80, True, 80))
+
 
 if __name__ == "__main__":
     unittest.main()

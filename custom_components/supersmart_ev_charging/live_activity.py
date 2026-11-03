@@ -48,6 +48,8 @@ def build_live_payload(
         "progress_bar_color": color,
         "color": color,
     }
+    if critical_text is not None:
+        nested["critical_text"] = critical_text
     if soc is not None:
         nested.update({
             "critical_text": critical_text or f"🔋 {soc}%",

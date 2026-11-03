@@ -20,6 +20,8 @@ from .calculations import (
     charging_time_minutes,
     clamp_voltage,
     pv_current_values,
+    soc_below_target,
+    soc_target_reached,
     wallbox_current_from_power,
 )
 
@@ -89,6 +91,7 @@ from .const import (
     CONF_WALLBOX_MODE_ENTITY,
     CONF_INITIAL_USER_SOC_TARGET,
     CONF_INITIAL_VEHICLE_SOC_TARGET,
+    CONF_ALLOW_CHARGING_WITHOUT_SOC,
     DEFAULT_CONTRACT_POWER_W,
     DEFAULT_BATTERY_CAPACITY_KWH,
     DEFAULT_ALLOWED_IMPORT_W,
@@ -134,6 +137,9 @@ from .const import (
     STOP_REASON_EXTERNAL,
     STOP_REASON_MANUAL,
     NOTIFICATION_LANGUAGE_AUTO,
+    VEHICLE_DATA_AVAILABLE,
+    VEHICLE_DATA_SOC_UNAVAILABLE_BLOCKED,
+    VEHICLE_DATA_SOC_UNAVAILABLE_VEHICLE_CONTROL,
 )
 from .live_activity import (
     build_live_payload,
@@ -306,6 +312,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self.vehicle_soc_target: float = float(
             d.get(CONF_INITIAL_VEHICLE_SOC_TARGET, DEFAULT_VEHICLE_SOC_TARGET)
         )
+        self.allow_charging_without_soc: bool = bool(
+            d.get(CONF_ALLOW_CHARGING_WITHOUT_SOC, False)
+        )
+        self.last_valid_vehicle_soc: float | None = None
+        self.last_valid_vehicle_soc_at: datetime | None = None
 
         # Limiti potenza esposti come number entities
         self.allowed_import_w: float    = DEFAULT_ALLOWED_IMPORT_W   # input_number.limite_import_permesso
@@ -339,6 +350,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._live_activity_active = False
         self._live_activity_tag = live_activity_tag(entry.entry_id)
         self._live_last_soc_bucket: int | None = None
+        self._live_last_soc_valid: bool | None = None
         self._live_last_mode: str | None = None
         self._live_last_target: int | None = None
         self._live_last_end_time: datetime | None = None
@@ -387,6 +399,12 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self.last_stop_reason = str(
             saved.get("last_stop_reason", self.last_stop_reason)
         )
+        saved_last_soc = saved.get("last_valid_vehicle_soc")
+        if isinstance(saved_last_soc, (int, float)):
+            self.last_valid_vehicle_soc = float(saved_last_soc)
+        saved_last_soc_at = saved.get("last_valid_vehicle_soc_at")
+        if isinstance(saved_last_soc_at, str):
+            self.last_valid_vehicle_soc_at = dt_util.parse_datetime(saved_last_soc_at)
         saved_clear_at = saved.get("live_clear_at")
         if (
             self._live_activity_end_behavior == LIVE_ACTIVITY_END_AUTOMATIC
@@ -461,6 +479,26 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             soc, soc_valid = self._get_valid_float(self._soc_entity)
             data["vehicle_soc"]       = soc
             data["vehicle_soc_valid"] = soc_valid
+            if soc_valid:
+                soc_state = self.hass.states.get(self._soc_entity)
+                observed_at = (
+                    soc_state.last_updated if soc_state is not None else dt_util.now()
+                )
+                if (
+                    self.last_valid_vehicle_soc != soc
+                    or self.last_valid_vehicle_soc_at != observed_at
+                ):
+                    self.last_valid_vehicle_soc = soc
+                    self.last_valid_vehicle_soc_at = observed_at
+                    self._schedule_save()
+                vehicle_data_status = VEHICLE_DATA_AVAILABLE
+            elif self.allow_charging_without_soc:
+                vehicle_data_status = (
+                    VEHICLE_DATA_SOC_UNAVAILABLE_VEHICLE_CONTROL
+                )
+            else:
+                vehicle_data_status = VEHICLE_DATA_SOC_UNAVAILABLE_BLOCKED
+            data["vehicle_data_status"] = vehicle_data_status
 
             # Sync Auto -> integrazione. Il verso opposto è gestito dal number.
             if self._charge_limit_entity and not self._vehicle_limit_sync_pending:
@@ -521,11 +559,15 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             )
 
             # Stima tempo rimanente
-            remaining_min = charging_time_minutes(
-                soc,
-                target_soc,
-                self._battery_capacity_kwh,
-                wb_w,
+            remaining_min = (
+                charging_time_minutes(
+                    soc,
+                    target_soc,
+                    self._battery_capacity_kwh,
+                    wb_w,
+                )
+                if soc_valid
+                else None
             )
             data["remaining_minutes"] = remaining_min
             data["charge_end_time"]   = (
@@ -617,11 +659,6 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self.async_update_listeners()
             return
 
-        # Fail-safe: con ingressi critici non validi non vengono inviati comandi.
-        if not soc_valid or not critical_valid:
-            _LOGGER.debug("[SuperSmart] Input critico o SOC non valido – skip ciclo")
-            return
-
         # ── 1. MASTER STOP – priorità assoluta ────────────────────────────────
         if self.master_stop:
             if self.charging_mode != CHARGING_MODE_MASTER_STOP:
@@ -637,9 +674,29 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self.async_update_listeners()
             return
 
+        # Gli ingressi elettrici e wallbox restano sempre indispensabili per
+        # modulare in sicurezza. Il SOC può invece essere facoltativo quando
+        # l'utente sceglie esplicitamente di affidare lo stop finale all'auto.
+        if not critical_valid:
+            _LOGGER.debug("[SuperSmart] Input elettrico critico non valido – skip ciclo")
+            return
+        if not soc_valid and not self.allow_charging_without_soc:
+            _LOGGER.debug("[SuperSmart] SOC non disponibile – ricarica bloccata")
+            return
+
+        below_user_target = soc_below_target(
+            vehicle_soc,
+            soc_valid,
+            self.user_soc_target,
+            self.allow_charging_without_soc,
+        )
+
         # ── 2. GESTIONE SOC – stop assoluto se SOC ≥ limite_auto ──────────────
         # Replica: "soc >= limite_auto and stato != 'pause'" → revoca + FV OFF + FORZA OFF
-        if vehicle_soc >= self.vehicle_soc_target and wb_state != "pause":
+        if (
+            soc_target_reached(vehicle_soc, soc_valid, self.vehicle_soc_target)
+            and wb_state != "pause"
+        ):
             _LOGGER.info(
                 "[SuperSmart] SOC %.0f%% ≥ limite_auto %.0f%% – stop assoluto",
                 vehicle_soc, self.vehicle_soc_target,
@@ -712,7 +769,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         # skip_in_f3: se F3 e SOC < limite_utente e amp_fv < 7 → lascia spazio alla logica notturna
         skip_in_f3 = (
             is_offpeak
-            and vehicle_soc < self.user_soc_target
+            and below_user_target
             and amp_fv < DEFAULT_PV_START_CURRENT_A
             and not self.solar_controller_active
         )
@@ -800,7 +857,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 and is_offpeak
                 and sun_below
                 and not self.solar_controller_active
-                and vehicle_soc < self.user_soc_target
+                and below_user_target
                 and wb_state in WB_STATES_READY):
 
             # L'automazione "Gestione Fascia" usa il limite contrattuale per
@@ -831,7 +888,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 and sun_below
                 and not self.solar_controller_active
                 and wb_state == WB_STATE_CHARGING
-                and vehicle_soc < self.user_soc_target):
+                and below_user_target):
 
             amp_contratto = self._contratto_balanced_current(data, use_night_limit=True)
 
@@ -880,7 +937,9 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 and is_offpeak
                 and sun_below
                 and not self.force_charge
-                and vehicle_soc >= self.user_soc_target
+                and soc_target_reached(
+                    vehicle_soc, soc_valid, self.user_soc_target
+                )
                 and amp_fv < 6
                 and wb_state == WB_STATE_CHARGING):
             _LOGGER.info(
@@ -944,8 +1003,6 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             return
 
         soc, soc_valid = self._get_valid_float(self._soc_entity)
-        if not soc_valid:
-            return
         v_raw          = self._get_float(self._wallbox_voltage_entity, 0.0)
         voltage        = float(max(min(v_raw if v_raw > 0 else 230.0, 260.0), 180.0))
         grid_w         = self._get_float(self._grid_entity)
@@ -953,8 +1010,20 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         amp_fv_target  = (wb_w / voltage) + ((-grid_w + self.allowed_import_w) / voltage)
         tariff        = self._get_state(self._tariff_entity, "") if self._tariff_enabled else ""
         is_offpeak    = tariff == self._tariff_offpeak
-        continua_notturna = self.night_charging_enabled and is_offpeak and (soc < self.user_soc_target)
-        continua_fv       = amp_fv_target >= DEFAULT_PV_START_CURRENT_A
+        continua_notturna = (
+            self.night_charging_enabled
+            and is_offpeak
+            and soc_below_target(
+                soc,
+                soc_valid,
+                self.user_soc_target,
+                self.allow_charging_without_soc,
+            )
+        )
+        continua_fv = (
+            (soc_valid or self.allow_charging_without_soc)
+            and amp_fv_target >= DEFAULT_PV_START_CURRENT_A
+        )
 
         # Stesso ordine del choose YAML: la prosecuzione F3 ha precedenza sul
         # FV quando entrambe le condizioni sono vere.
@@ -1048,6 +1117,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self.vehicle_soc_target,
         )
         self.data["target_soc_active"] = target_soc
+        if not self.data.get("vehicle_soc_valid", False):
+            self.data["remaining_minutes"] = None
+            self.data["charge_end_time"] = None
+            return
         soc = float(self.data.get("vehicle_soc", 0.0))
         remaining_min = charging_time_minutes(
             soc,
@@ -1100,6 +1173,12 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             "last_limit_sent_a": self.last_limit_sent_a,
             "charging_mode": self.charging_mode,
             "last_stop_reason": self.last_stop_reason,
+            "last_valid_vehicle_soc": self.last_valid_vehicle_soc,
+            "last_valid_vehicle_soc_at": (
+                self.last_valid_vehicle_soc_at.isoformat()
+                if self.last_valid_vehicle_soc_at is not None
+                else None
+            ),
             "live_clear_at": (
                 self._live_clear_at.isoformat()
                 if self._live_clear_at is not None
@@ -1295,14 +1374,18 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
 
         data = self.data or {}
         soc_value = data.get("vehicle_soc")
-        if not data.get("vehicle_soc_valid") or soc_value is None:
-            return
-        bucket = soc_bucket(float(soc_value), self._live_activity_soc_step)
+        soc_valid = bool(data.get("vehicle_soc_valid")) and soc_value is not None
+        bucket = (
+            soc_bucket(float(soc_value), self._live_activity_soc_step)
+            if soc_valid
+            else None
+        )
         mode = self._notification_mode()
         target = int(data.get("target_soc_active", self.user_soc_target))
         end_time = data.get("charge_end_time")
         meaningful = (
-            bucket != self._live_last_soc_bucket
+            soc_valid != self._live_last_soc_valid
+            or bucket != self._live_last_soc_bucket
             or mode != self._live_last_mode
             or target != self._live_last_target
             or end_time_shifted(
@@ -1315,7 +1398,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             return
 
         now = dt_util.now()
-        urgent = mode != self._live_last_mode or target != self._live_last_target
+        urgent = (
+            soc_valid != self._live_last_soc_valid
+            or mode != self._live_last_mode
+            or target != self._live_last_target
+        )
         if (
             not urgent
             and self._live_last_update_at is not None
@@ -1342,14 +1429,14 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         charge_end_time = (
             dt_util.as_local(end_time).strftime("%H:%M")
             if isinstance(end_time, datetime)
-            else "—"
+            else "N/A"
         )
         context = {
             "instance": self.entry.title,
             "mode": mode_label,
-            "soc": soc if soc is not None else "—",
+            "soc": soc if soc is not None else "N/A",
             "target": target,
-            "time_remaining": "—",
+            "time_remaining": "N/A" if not soc_valid else "—",
             "charge_end_time": charge_end_time,
             "reason": "",
         }
@@ -1365,7 +1452,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         critical_text = (
             self._render_live_template(CONF_LIVE_CRITICAL_TEXT, context, defaults)
             if soc_valid
-            else None
+            else "SOC N/A"
         )
         payload = build_live_payload(
             title=self._live_activity_title,
@@ -1384,6 +1471,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._live_last_soc_bucket = (
             soc_bucket(soc, self._live_activity_soc_step) if soc is not None else None
         )
+        self._live_last_soc_valid = soc_valid
         self._live_last_mode = mode
         self._live_last_target = target
         self._live_last_end_time = end_time if isinstance(end_time, datetime) else None
@@ -1416,10 +1504,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         context = {
             "instance": self.entry.title,
             "mode": defaults["live_modes"].get(mode, defaults["live_modes"]["sconosciuta"]),
-            "soc": soc if soc is not None else "—",
+            "soc": soc if soc is not None else "N/A",
             "target": target,
-            "time_remaining": "—",
-            "charge_end_time": "—",
+            "time_remaining": "N/A" if soc is None else "—",
+            "charge_end_time": "N/A" if soc is None else "—",
             "reason": reason,
         }
         stop_template_key = {
@@ -1444,7 +1532,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             critical_text=(
                 self._render_live_template(CONF_LIVE_CRITICAL_TEXT, context, defaults)
                 if soc is not None
-                else None
+                else "SOC N/A"
             ),
         )
         await self._notify_services_call(self._live_activity_services, payload)
@@ -1511,20 +1599,24 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             return
         mode = self._notification_mode()
         self._last_notified_mode = mode
-        soc = int(self._get_float(self._soc_entity))
+        soc_value, soc_valid = self._get_valid_float(self._soc_entity)
+        soc: int | str = int(soc_value) if soc_valid else "N/A"
         target = int(self.user_soc_target if mode == "notturna_f3" else self.vehicle_soc_target)
         defaults = notification_defaults(
             self._notification_language, self.hass.config.language
         )
         context = self._notification_context(mode, soc, target, defaults)
-        await self._notify_from_template("start", context, defaults)
+        await self._notify_from_template(
+            "start", context, defaults, soc_valid=soc_valid
+        )
 
     async def _notify_charge_stopped(self) -> None:
         await asyncio.sleep(15)
         if self._get_state(self._wallbox_state_entity, WB_STATE_IDLE) == WB_STATE_CHARGING:
             return
         mode = self._last_notified_mode
-        soc = int(self._get_float(self._soc_entity))
+        soc_value, soc_valid = self._get_valid_float(self._soc_entity)
+        soc: int | str = int(soc_value) if soc_valid else "N/A"
         target = int(
             self.user_soc_target if mode == "notturna_f3" else self.vehicle_soc_target
         )
@@ -1532,13 +1624,15 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self._notification_language, self.hass.config.language
         )
         context = self._notification_context(mode, soc, target, defaults)
-        await self._notify_from_template("stop", context, defaults)
+        await self._notify_from_template(
+            "stop", context, defaults, soc_valid=soc_valid
+        )
         self._last_notified_mode = "sconosciuta"
 
     def _notification_context(
         self,
         mode: str,
-        soc: int,
+        soc: int | str,
         target: int,
         defaults: dict[str, Any],
     ) -> dict[str, Any]:
@@ -1570,12 +1664,17 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         event: str,
         context: dict[str, Any],
         defaults: dict[str, Any],
+        *,
+        soc_valid: bool = True,
     ) -> None:
         """Render localized defaults or the user's optional templates."""
         title_key = f"{event}_title"
         message_key = f"{event}_message"
         title_template = defaults[title_key]
-        message_template = defaults[message_key]
+        default_message_key = (
+            message_key if soc_valid else f"{message_key}_no_soc"
+        )
+        message_template = defaults[default_message_key]
         if self._notification_customize:
             title_template = self._notification_templates.get(title_key) or title_template
             message_template = self._notification_templates.get(message_key) or message_template
@@ -1585,7 +1684,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         except ValueError:
             _LOGGER.warning("Template notifica non valido; uso il testo predefinito")
             title = render_notification_template(defaults[title_key], context)
-            message = render_notification_template(defaults[message_key], context)
+            message = render_notification_template(defaults[default_message_key], context)
         await self._notify(title, message)
 
     def _notification_mode(self) -> str:

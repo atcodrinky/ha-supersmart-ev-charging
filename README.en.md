@@ -83,6 +83,7 @@ progress-notification fallback.
 | Usable battery capacity | Actual usable capacity, adjustable over time | 60 kWh |
 | User SOC target | Off-peak target restored after disconnection | 50% |
 | Vehicle SOC target | Target used by PV and Force Charge | 80% |
+| Charging without SOC | Keeps control active and entrusts stopping to the vehicle target | Disabled |
 | Off-peak tariff | Enables the off-peak charging logic | Enabled |
 | MQTT | Enables MQTT wallbox control | Enabled |
 | MQTT energy telemetry | Publishes energy data to the configured topics | Enabled |
@@ -185,6 +186,15 @@ The general settings also let you choose the default user SOC target. When the
 wallbox returns to `idle` after the vehicle is disconnected, the integration
 automatically restores that value.
 
+You can also enable **Allow charging when SOC is unavailable**, either during
+setup or later in Options. It is disabled by default. When enabled, if the
+vehicle integration temporarily stops providing data, SuperSmart can still
+start and modulate the wallbox according to PV, off-peak, and Force rules, while
+entrusting the final stop to the target already stored in the vehicle. While SOC
+is missing, the off-peak user target cannot be checked, estimates show `N/A`,
+the Live Activity displays `SOC N/A`, and no false target-reached events are
+generated. Master Stop and electrical safety protections always remain active.
+
 ### Final step — MQTT commands
 
 This step is displayed when MQTT is enabled.
@@ -244,6 +254,7 @@ automatically to instances created with v1.2.0 or later.
 | Wallbox Current Target | Last current limit actually sent to the wallbox |
 | Actual Wallbox Current | Estimate calculated from wallbox power and voltage |
 | Last Stop Reason | Target reached, Master Stop, insufficient margin, PV loss, or wallbox stop |
+| Vehicle Data Status | SOC availability and whether control is currently entrusted to the vehicle |
 
 ### Switches
 

@@ -27,6 +27,11 @@ from .const import (
     SENSOR_WALLBOX_CURRENT_TARGET,
     SENSOR_WALLBOX_CURRENT_ACTUAL,
     SENSOR_LAST_STOP_REASON,
+    SENSOR_VEHICLE_DATA_STATUS,
+    VEHICLE_DATA_STATES,
+    VEHICLE_DATA_AVAILABLE,
+    VEHICLE_DATA_SOC_UNAVAILABLE_BLOCKED,
+    WB_STATE_IDLE,
 )
 from .coordinator import SuperSmartEvChargingCoordinator
 
@@ -49,6 +54,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         WallboxCurrentTargetSensor(coordinator, entry),
         WallboxCurrentActualSensor(coordinator, entry),
         LastStopReasonSensor(coordinator, entry),
+        VehicleDataStatusSensor(coordinator, entry),
     ])
 
 
@@ -128,7 +134,10 @@ class TimeRemainingSensor(_Base):
 
     @property
     def native_value(self) -> str | None:
-        minutes = (self.coordinator.data or {}).get("remaining_minutes")
+        data = self.coordinator.data or {}
+        if not data.get("vehicle_soc_valid", False):
+            return "N/A"
+        minutes = data.get("remaining_minutes")
         if minutes is None:
             return None
         h, m = int(minutes // 60), int(minutes % 60)
@@ -200,3 +209,42 @@ class LastStopReasonSensor(_Base):
     @property
     def native_value(self) -> str:
         return self.coordinator.last_stop_reason
+
+
+class VehicleDataStatusSensor(_Base):
+    """Expose SOC availability and the selected degraded-mode behaviour."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = VEHICLE_DATA_STATES
+    _attr_icon = "mdi:car-connected"
+
+    def __init__(self, c, e):
+        super().__init__(c, e, SENSOR_VEHICLE_DATA_STATUS)
+
+    @property
+    def native_value(self) -> str:
+        data = self.coordinator.data or {}
+        return data.get(
+            "vehicle_data_status",
+            VEHICLE_DATA_AVAILABLE
+            if data.get("vehicle_soc_valid")
+            else VEHICLE_DATA_SOC_UNAVAILABLE_BLOCKED,
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data or {}
+        soc_valid = bool(data.get("vehicle_soc_valid"))
+        wallbox_active = data.get("wallbox_state", WB_STATE_IDLE) != WB_STATE_IDLE
+        return {
+            "last_valid_soc": self.coordinator.last_valid_vehicle_soc,
+            "last_valid_at": self.coordinator.last_valid_vehicle_soc_at,
+            "charging_without_soc_enabled": (
+                self.coordinator.allow_charging_without_soc
+            ),
+            "vehicle_control_fallback_active": (
+                not soc_valid
+                and self.coordinator.allow_charging_without_soc
+                and wallbox_active
+            ),
+        }

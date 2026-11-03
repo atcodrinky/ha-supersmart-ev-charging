@@ -14,10 +14,12 @@
           "notifications_enabled": "Configure charging notifications now",
           "live_activity_enabled": "Configure Live Activity / Live Update now",
           "initial_user_soc_target": "User SOC target – used for NIGHT F3 charging (%)",
-          "initial_vehicle_soc_target": "Vehicle SOC target – used for PV SURPLUS & FORCE (%)"
+          "initial_vehicle_soc_target": "Vehicle SOC target – used for PV SURPLUS & FORCE (%)",
+          "allow_charging_without_soc": "Allow charging when SOC is unavailable"
         },
         "data_description": {
-          "instance_name": "Recommended pattern: SuperSmart VEHICLE_NAME Charging. Example: SuperSmart Elroq Charging → sensor.supersmart_elroq_charging_…"
+          "instance_name": "Recommended pattern: SuperSmart VEHICLE_NAME Charging. Example: SuperSmart Elroq Charging → sensor.supersmart_elroq_charging_…",
+          "allow_charging_without_soc": "If SOC is unavailable, the integration may start and modulate charging according to PV, off-peak and Force rules. Target stopping is entrusted to the limit stored in the vehicle; the off-peak user target cannot be checked. Default: disabled."
         }
       },
       "entities": {
@@ -118,7 +120,11 @@
           "initial_user_soc_target": "Default user SOC target after disconnect (%)",
           "tariff_enabled": "Enable off-peak charging",
           "mqtt_enabled": "Enable MQTT",
-          "energy_publish_enabled": "Publish Prism energy telemetry"
+          "energy_publish_enabled": "Publish Prism energy telemetry",
+          "allow_charging_without_soc": "Allow charging when SOC is unavailable"
+        },
+        "data_description": {
+          "allow_charging_without_soc": "Keeps controlling the wallbox without SOC data and entrusts the final stop to the target stored in the vehicle. The off-peak user target cannot be enforced while SOC is missing."
         }
       },
       "entities": {
@@ -264,6 +270,14 @@
           "pv_surplus_lost": "PV surplus ended",
           "wallbox_stopped": "Charging stopped by wallbox",
           "manual_stop": "Charging stopped manually"
+        }
+      },
+      "vehicle_data_status": {
+        "name": "Vehicle data status",
+        "state": {
+          "available": "Data available",
+          "soc_unavailable_blocked": "SOC unavailable – charging blocked",
+          "soc_unavailable_vehicle_control": "SOC unavailable – control entrusted to vehicle"
         }
       }
     },

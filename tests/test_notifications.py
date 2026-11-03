@@ -72,6 +72,12 @@ class NotificationTests(unittest.TestCase):
             italian["live_templates"]["live_stop_pv_lost"],
             "☁️ FV insufficiente",
         )
+        self.assertIn("SOC: N/A", italian["start_message_no_soc"])
+        self.assertIn("Final SOC: N/A", english["stop_message_no_soc"])
+        self.assertEqual(
+            italian["live_templates"]["live_message_no_soc"],
+            "{mode} · SOC N/A",
+        )
 
     def test_custom_template_renders_supported_values(self) -> None:
         rendered = notifications.render_notification_template(

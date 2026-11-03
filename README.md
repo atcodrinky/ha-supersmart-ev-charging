@@ -85,6 +85,7 @@ avanzamento.
 | Capacità utile batteria | Capacità realmente utilizzabile, modificabile nel tempo | 60 kWh |
 | Target SOC utente | Obiettivo notturno e valore ripristinato alla disconnessione | 50% |
 | Target SOC veicolo | Obiettivo usato da FV e Forza Ricarica | 80% |
+| Ricarica senza SOC | Continua il controllo affidando lo stop al target dell'auto | Disattivata |
 | Fascia off-peak | Abilita la logica della ricarica notturna | Attiva |
 | MQTT | Abilita il controllo della wallbox tramite MQTT | Attivo |
 | Telemetria energia MQTT | Pubblica i dati energetici sui topic configurati | Attiva |
@@ -190,6 +191,15 @@ Nelle impostazioni generali puoi anche scegliere il target SOC utente
 predefinito. Quando la wallbox torna in `idle` per la disconnessione del veicolo,
 il target utente viene ripristinato automaticamente a quel valore.
 
+Puoi inoltre attivare **Consenti la ricarica quando il SOC non è disponibile**,
+anche in seguito dalle opzioni. È disattivata per impostazione predefinita. Se
+abilitata, in caso di indisponibilità temporanea dell'integrazione del veicolo
+SuperSmart continua ad avviare e modulare la wallbox secondo le regole FV, F3 e
+Forza, ma affida lo stop finale al limite già memorizzato nell'auto. Finché il
+SOC manca, il target utente F3 non può essere verificato, le stime mostrano
+`N/A`, la Live Activity indica `SOC N/A` e non vengono generati falsi eventi di
+target raggiunto. Master Stop e protezioni elettriche rimangono sempre attivi.
+
 ### Passaggio finale — Comandi MQTT
 
 Il passaggio compare quando MQTT è abilitato.
@@ -250,6 +260,7 @@ automaticamente alle istanze create dalla v1.2.0 in poi.
 | Corrente target wallbox | Ultimo limite di corrente effettivamente inviato |
 | Corrente effettiva wallbox | Stima ottenuta da potenza wallbox e tensione |
 | Ultimo motivo arresto | Target raggiunto, Master Stop, margine insufficiente, fine surplus o stop della wallbox |
+| Stato dati veicolo | Disponibilità del SOC e stato dell'eventuale controllo affidato all'auto |
 
 ### Switch
 

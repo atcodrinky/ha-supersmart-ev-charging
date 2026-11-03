@@ -5,6 +5,7 @@ DOMAIN = "supersmart_ev_charging"
 CONF_INSTANCE_NAME = "instance_name"
 CONF_INITIAL_USER_SOC_TARGET = "initial_user_soc_target"
 CONF_INITIAL_VEHICLE_SOC_TARGET = "initial_vehicle_soc_target"
+CONF_ALLOW_CHARGING_WITHOUT_SOC = "allow_charging_without_soc"
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
 
 # ── Config entry keys ──────────────────────────────────────────────────────────
@@ -204,6 +205,18 @@ CHARGING_MODES = [
     CHARGING_MODE_MASTER_STOP,
 ]
 
+VEHICLE_DATA_AVAILABLE = "available"
+VEHICLE_DATA_SOC_UNAVAILABLE_BLOCKED = "soc_unavailable_blocked"
+VEHICLE_DATA_SOC_UNAVAILABLE_VEHICLE_CONTROL = (
+    "soc_unavailable_vehicle_control"
+)
+
+VEHICLE_DATA_STATES = [
+    VEHICLE_DATA_AVAILABLE,
+    VEHICLE_DATA_SOC_UNAVAILABLE_BLOCKED,
+    VEHICLE_DATA_SOC_UNAVAILABLE_VEHICLE_CONTROL,
+]
+
 STOP_REASON_NONE = "none"
 STOP_REASON_MASTER_STOP = "master_stop"
 STOP_REASON_VEHICLE_TARGET = "vehicle_target_reached"
@@ -233,6 +246,7 @@ SENSOR_CHARGE_END_TIME        = "charge_end_time"
 SENSOR_WALLBOX_CURRENT_TARGET = "wallbox_current_target"
 SENSOR_WALLBOX_CURRENT_ACTUAL = "wallbox_current_actual"
 SENSOR_LAST_STOP_REASON       = "last_stop_reason"
+SENSOR_VEHICLE_DATA_STATUS    = "vehicle_data_status"
 
 SWITCH_MASTER_STOP      = "master_stop"
 SWITCH_FORCE_CHARGE     = "force_charge"

@@ -61,10 +61,12 @@ class LiveActivityTests(unittest.TestCase):
             remaining_minutes=None,
             dashboard_url="",
             silent=False,
+            critical_text="SOC N/A",
         )
         self.assertNotIn("progress", payload["data"])
         self.assertNotIn("chronometer", payload["data"])
         self.assertNotIn("silent", payload["data"])
+        self.assertEqual(payload["data"]["critical_text"], "SOC N/A")
 
     def test_custom_critical_text_is_used(self) -> None:
         payload = live_activity.build_live_payload(

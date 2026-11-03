@@ -14,10 +14,12 @@
           "notifications_enabled": "Configura ora le notifiche di ricarica",
           "live_activity_enabled": "Configura ora Live Activity / Live Update",
           "initial_user_soc_target": "Target SOC utente – usato per ricarica NOTTE F3 (%)",
-          "initial_vehicle_soc_target": "Target SOC veicolo – usato per SURPLUS FV e FORZA (%)"
+          "initial_vehicle_soc_target": "Target SOC veicolo – usato per SURPLUS FV e FORZA (%)",
+          "allow_charging_without_soc": "Consenti la ricarica quando il SOC non è disponibile"
         },
         "data_description": {
-          "instance_name": "Schema consigliato: SuperSmart NOME_AUTO Charging. Esempio: SuperSmart Elroq Charging → sensor.supersmart_elroq_charging_…"
+          "instance_name": "Schema consigliato: SuperSmart NOME_AUTO Charging. Esempio: SuperSmart Elroq Charging → sensor.supersmart_elroq_charging_…",
+          "allow_charging_without_soc": "Se il SOC non è disponibile, l'integrazione può avviare e modulare la ricarica secondo FV, F3 e Forza. Lo stop al target viene affidato al limite memorizzato nell'auto; il target utente F3 non può essere verificato. Predefinito: disattivato."
         }
       },
       "entities": {
@@ -118,7 +120,11 @@
           "initial_user_soc_target": "Target SOC utente predefinito dopo la disconnessione (%)",
           "tariff_enabled": "Abilita ricarica off-peak F3",
           "mqtt_enabled": "Abilita MQTT",
-          "energy_publish_enabled": "Invia telemetria energia alla Prism"
+          "energy_publish_enabled": "Invia telemetria energia alla Prism",
+          "allow_charging_without_soc": "Consenti la ricarica quando il SOC non è disponibile"
+        },
+        "data_description": {
+          "allow_charging_without_soc": "Mantiene il controllo della wallbox anche senza dati SOC e affida lo stop finale al limite configurato nell'auto. Il target utente F3 non può essere applicato finché il SOC resta assente."
         }
       },
       "entities": {
@@ -264,6 +270,14 @@
           "pv_surplus_lost": "Surplus FV terminato",
           "wallbox_stopped": "Ricarica fermata dalla wallbox",
           "manual_stop": "Ricarica fermata manualmente"
+        }
+      },
+      "vehicle_data_status": {
+        "name": "Stato dati veicolo",
+        "state": {
+          "available": "Dati disponibili",
+          "soc_unavailable_blocked": "SOC non disponibile – ricarica bloccata",
+          "soc_unavailable_vehicle_control": "SOC non disponibile – controllo affidato all'auto"
         }
       }
     },

@@ -74,3 +74,24 @@ def charging_time_minutes(
         (target_soc - current_soc) / 100.0 * usable_capacity_kwh,
     )
     return remaining_kwh / power_kw * 60.0
+
+
+def soc_below_target(
+    soc: float,
+    soc_valid: bool,
+    target: float,
+    allow_without_soc: bool,
+) -> bool:
+    """Return whether charging may continue below a SOC target.
+
+    With missing SOC, availability-first operation explicitly relies on the
+    target stored in the vehicle itself.
+    """
+    if not soc_valid:
+        return allow_without_soc
+    return soc < target
+
+
+def soc_target_reached(soc: float, soc_valid: bool, target: float) -> bool:
+    """Never report a target as reached without a valid vehicle SOC."""
+    return soc_valid and soc >= target
