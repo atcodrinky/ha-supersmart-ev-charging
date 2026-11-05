@@ -211,6 +211,7 @@
           "live_stop_user_target": "Target utente raggiunto",
           "live_stop_low_power": "Potenza insufficiente",
           "live_stop_pv_lost": "FV insufficiente",
+          "live_stop_offpeak_ended": "Fine fascia F3",
           "live_stop_external": "Arresto dalla wallbox",
           "live_stop_manual": "Arresto manuale"
         }
@@ -268,6 +269,7 @@
           "user_target_reached": "Target utente raggiunto",
           "low_power_margin": "Margine di potenza insufficiente",
           "pv_surplus_lost": "Surplus FV terminato",
+          "offpeak_ended": "Fascia F3 terminata",
           "wallbox_stopped": "Ricarica fermata dalla wallbox",
           "manual_stop": "Ricarica fermata manualmente"
         }

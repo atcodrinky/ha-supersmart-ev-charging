@@ -63,6 +63,7 @@ CONF_LIVE_STOP_VEHICLE_TARGET    = "live_stop_vehicle_target"
 CONF_LIVE_STOP_USER_TARGET       = "live_stop_user_target"
 CONF_LIVE_STOP_LOW_POWER         = "live_stop_low_power"
 CONF_LIVE_STOP_PV_LOST           = "live_stop_pv_lost"
+CONF_LIVE_STOP_OFFPEAK_ENDED     = "live_stop_offpeak_ended"
 CONF_LIVE_STOP_EXTERNAL          = "live_stop_external"
 CONF_LIVE_STOP_MANUAL            = "live_stop_manual"
 
@@ -81,6 +82,7 @@ LIVE_STOP_TEMPLATE_KEYS = (
     CONF_LIVE_STOP_USER_TARGET,
     CONF_LIVE_STOP_LOW_POWER,
     CONF_LIVE_STOP_PV_LOST,
+    CONF_LIVE_STOP_OFFPEAK_ENDED,
     CONF_LIVE_STOP_EXTERNAL,
     CONF_LIVE_STOP_MANUAL,
 )
@@ -223,6 +225,7 @@ STOP_REASON_VEHICLE_TARGET = "vehicle_target_reached"
 STOP_REASON_USER_TARGET = "user_target_reached"
 STOP_REASON_LOW_POWER = "low_power_margin"
 STOP_REASON_PV_LOST = "pv_surplus_lost"
+STOP_REASON_OFFPEAK_ENDED = "offpeak_ended"
 STOP_REASON_EXTERNAL = "wallbox_stopped"
 STOP_REASON_MANUAL = "manual_stop"
 
@@ -233,6 +236,7 @@ STOP_REASONS = [
     STOP_REASON_USER_TARGET,
     STOP_REASON_LOW_POWER,
     STOP_REASON_PV_LOST,
+    STOP_REASON_OFFPEAK_ENDED,
     STOP_REASON_EXTERNAL,
     STOP_REASON_MANUAL,
 ]

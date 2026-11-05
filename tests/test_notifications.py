@@ -72,6 +72,14 @@ class NotificationTests(unittest.TestCase):
             italian["live_templates"]["live_stop_pv_lost"],
             "☁️ FV insufficiente",
         )
+        self.assertEqual(
+            italian["live_templates"]["live_stop_offpeak_ended"],
+            "🌅 Fascia F3 terminata",
+        )
+        self.assertEqual(
+            english["stop_reasons"]["offpeak_ended"],
+            "Off-peak period ended",
+        )
         self.assertIn("SOC: N/A", italian["start_message_no_soc"])
         self.assertIn("Final SOC: N/A", english["stop_message_no_soc"])
         self.assertEqual(

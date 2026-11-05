@@ -95,3 +95,20 @@ def soc_below_target(
 def soc_target_reached(soc: float, soc_valid: bool, target: float) -> bool:
     """Never report a target as reached without a valid vehicle SOC."""
     return soc_valid and soc >= target
+
+
+def night_charge_should_stop(
+    charging_mode: str,
+    wallbox_charging: bool,
+    is_offpeak: bool,
+    force_charge: bool,
+    solar_controller_active: bool,
+) -> bool:
+    """Stop a night session when its off-peak window is no longer active."""
+    return (
+        charging_mode == "night"
+        and wallbox_charging
+        and not is_offpeak
+        and not force_charge
+        and not solar_controller_active
+    )

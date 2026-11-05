@@ -91,6 +91,30 @@ class CalculationTests(unittest.TestCase):
         self.assertFalse(calculations.soc_target_reached(100, False, 80))
         self.assertTrue(calculations.soc_target_reached(80, True, 80))
 
+    def test_night_session_stops_when_offpeak_period_ends(self) -> None:
+        self.assertTrue(
+            calculations.night_charge_should_stop(
+                "night", True, False, False, False
+            )
+        )
+
+    def test_tariff_change_does_not_stop_other_charging_modes(self) -> None:
+        self.assertFalse(
+            calculations.night_charge_should_stop(
+                "force", True, False, True, False
+            )
+        )
+        self.assertFalse(
+            calculations.night_charge_should_stop(
+                "pv_surplus", True, False, False, True
+            )
+        )
+        self.assertFalse(
+            calculations.night_charge_should_stop(
+                "night", True, True, False, False
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -211,6 +211,7 @@
           "live_stop_user_target": "User target reached",
           "live_stop_low_power": "Insufficient power",
           "live_stop_pv_lost": "Insufficient PV",
+          "live_stop_offpeak_ended": "Off-peak period ended",
           "live_stop_external": "Stopped by wallbox",
           "live_stop_manual": "Manual stop"
         }
@@ -268,6 +269,7 @@
           "user_target_reached": "User target reached",
           "low_power_margin": "Insufficient power margin",
           "pv_surplus_lost": "PV surplus ended",
+          "offpeak_ended": "Off-peak period ended",
           "wallbox_stopped": "Charging stopped by wallbox",
           "manual_stop": "Charging stopped manually"
         }

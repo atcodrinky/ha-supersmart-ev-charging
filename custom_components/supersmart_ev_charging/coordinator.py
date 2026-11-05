@@ -19,6 +19,7 @@ from .calculations import (
     balanced_current,
     charging_time_minutes,
     clamp_voltage,
+    night_charge_should_stop,
     pv_current_values,
     soc_below_target,
     soc_target_reached,
@@ -84,6 +85,7 @@ from .const import (
     CONF_LIVE_STOP_MASTER,
     CONF_LIVE_STOP_NONE,
     CONF_LIVE_STOP_PV_LOST,
+    CONF_LIVE_STOP_OFFPEAK_ENDED,
     CONF_LIVE_STOP_USER_TARGET,
     CONF_LIVE_STOP_VEHICLE_TARGET,
     LIVE_CHARGING_TEMPLATE_KEYS,
@@ -134,6 +136,7 @@ from .const import (
     STOP_REASON_USER_TARGET,
     STOP_REASON_LOW_POWER,
     STOP_REASON_PV_LOST,
+    STOP_REASON_OFFPEAK_ENDED,
     STOP_REASON_EXTERNAL,
     STOP_REASON_MANUAL,
     NOTIFICATION_LANGUAGE_AUTO,
@@ -849,7 +852,31 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self.async_update_listeners()
                 return
 
-        # ── 5. GESTIONE FASCIA F3 NOTTE – avvio notturno ──────────────────────
+        # ── 5. FINE FASCIA F3 ────────────────────────────────────────────────
+        # Lo switch abilita la funzione in modo permanente e deve restare ON
+        # per la notte successiva. È la singola sessione ``night`` a terminare
+        # automaticamente quando la fascia configurata non è più attiva.
+        if night_charge_should_stop(
+            self.charging_mode,
+            wb_state == WB_STATE_CHARGING,
+            is_offpeak,
+            self.force_charge,
+            self.solar_controller_active,
+        ):
+            _LOGGER.info(
+                "[SuperSmart] Fine fascia off-peak – stop ricarica notturna"
+            )
+            await self._set_mode(self._payload_pause)
+            await self._delay(1)
+            await self._revoke()
+            self.last_stop_reason = STOP_REASON_OFFPEAK_ENDED
+            self.charging_mode = CHARGING_MODE_IDLE
+            self._reset_pv_counters()
+            self._fv_hygiene_cycles = 0
+            self.async_update_listeners()
+            return
+
+        # ── 6. GESTIONE FASCIA F3 NOTTE – avvio notturno ──────────────────────
         # Condizioni YAML: F3 + sole sotto orizzonte + solar_active=OFF + SOC < limite_utente
         #                  + amp (contratto) ≥ 7A + amp_fv < 6A + stato in [waiting, pause]
         if (self.night_charging_enabled
@@ -880,7 +907,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self.async_update_listeners()
                 return
 
-        # ── 6. GESTIONE CARICHI NOTTURNA – modulazione in F3 ──────────────────
+        # ── 7. GESTIONE CARICHI NOTTURNA – modulazione in F3 ──────────────────
         # Condizioni: F3 + notte + solar_active=OFF + charging + SOC < limite_utente
         if (self.night_charging_enabled
                 and self._tariff_enabled
@@ -931,7 +958,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self._night_below_since = None
                 self._pv_below_stop_cycles = 0
 
-        # ── 7. GESTIONE SOC F3 – stop se SOC ≥ limite_utente in notte senza FV ─
+        # ── 8. GESTIONE SOC F3 – stop se SOC ≥ limite_utente in notte senza FV ─
         if (self.night_charging_enabled
                 and self._tariff_enabled
                 and is_offpeak
@@ -957,10 +984,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self.async_update_listeners()
             return
 
-        # ── 8. USCITA INTELLIGENTE DA FORZA (chiamata quando force_charge → OFF)
+        # ── 9. USCITA INTELLIGENTE DA FORZA (chiamata quando force_charge → OFF)
         # Gestita in ForceChargeSwitch.async_turn_off() → _handle_force_exit()
 
-        # ── 9. IGIENE CONTROLLER FV – spegne solar_active se inutile ──────────
+        # ── 10. IGIENE CONTROLLER FV – spegne solar_active se inutile ─────────
         # Condizioni YAML: (not forza) and solar_active and stato != 'charging' and amp_fv < 7
         if (not self.force_charge
                 and self.solar_controller_active
@@ -1516,6 +1543,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             STOP_REASON_USER_TARGET: CONF_LIVE_STOP_USER_TARGET,
             STOP_REASON_LOW_POWER: CONF_LIVE_STOP_LOW_POWER,
             STOP_REASON_PV_LOST: CONF_LIVE_STOP_PV_LOST,
+            STOP_REASON_OFFPEAK_ENDED: CONF_LIVE_STOP_OFFPEAK_ENDED,
             STOP_REASON_EXTERNAL: CONF_LIVE_STOP_EXTERNAL,
             STOP_REASON_MANUAL: CONF_LIVE_STOP_MANUAL,
         }.get(self.last_stop_reason, CONF_LIVE_STOP_NONE)

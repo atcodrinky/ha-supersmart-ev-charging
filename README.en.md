@@ -22,7 +22,7 @@ equivalent entities and commands.
 | Feature | Description |
 |---|---|
 | ☀️ **PV surplus** | Modulates charging current using available solar power and a configurable grid offset |
-| 🌙 **Off-peak charging** | Charges during the selected cheap tariff, such as F3, up to the user SOC target |
+| 🌙 **Off-peak charging** | Charges only during the selected cheap tariff, such as F3, up to the user SOC target |
 | ⚡ **Load balancing** | Limits charging according to the total operating threshold and household consumption |
 | 🔋 **Dual SOC target** | User target for off-peak charging and vehicle target for PV/Force Charge |
 | 🚀 **Force Charge** | Starts charging regardless of tariff band and PV surplus |
@@ -336,6 +336,10 @@ Force Charge? ───────────── yes ─→ Normal + vehicl
 Usable PV surplus? ──────── yes ─→ Solar + vehicle target
                          │ no       + incremental current control
                          ▼
+Night session and off-peak period ended?
+                         ├─ yes ─→ Pause + revoke authorization
+                         │ no
+                         ▼
 Off-peak + night enabled? ─ yes ─→ Normal + user target
                          │ no       + night power limit
                          ▼
@@ -343,6 +347,10 @@ Off-peak + night enabled? ─ yes ─→ Normal + user target
 ```
 
 Decisions are serialized to avoid overlapping MQTT commands.
+The **Night Charging (F3)** switch persistently enables the feature and stays
+on between sessions. When the tariff changes from F3 to F1/F2, the integration
+ends only the current night session, revokes authorization, and records
+**Off-peak period ended** as the stop reason.
 
 ### Load balancing and PV calculation
 

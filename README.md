@@ -22,7 +22,7 @@ comandi equivalenti.
 | Funzione | Descrizione |
 |---|---|
 | ☀️ **Surplus FV** | Modula la corrente usando l'energia solare disponibile e un offset di rete configurabile |
-| 🌙 **Ricarica notturna** | Carica nella fascia off-peak scelta, per esempio F3, fino al target SOC utente |
+| 🌙 **Ricarica notturna** | Carica soltanto nella fascia off-peak scelta, per esempio F3, fino al target SOC utente |
 | ⚡ **Load balancing** | Limita la ricarica in base alla soglia operativa totale e ai consumi dell'abitazione |
 | 🔋 **Doppio target SOC** | Target utente per la notte e target veicolo per FV e Forza Ricarica |
 | 🚀 **Forza Ricarica** | Avvia la ricarica indipendentemente da fascia tariffaria e surplus FV |
@@ -342,6 +342,10 @@ Forza Ricarica? ───────────── sì ─→ Normale + tar
 Surplus FV utilizzabile? ──── sì ─→ Solare + target veicolo
                          │ no        + regolazione incrementale
                          ▼
+Sessione Notte F3 e fascia terminata?
+                         ├─ sì ─→ Pausa + revoca autorizzazione
+                         │ no
+                         ▼
 Fascia off-peak + notte? ──── sì ─→ Normale + target utente
                          │ no        + limite potenza notturna
                          ▼
@@ -349,6 +353,10 @@ Fascia off-peak + notte? ──── sì ─→ Normale + target utente
 ```
 
 Le decisioni sono serializzate per evitare comandi MQTT sovrapposti.
+Lo switch **Ricarica Notturna F3** abilita stabilmente la funzione e rimane
+acceso tra una sessione e l'altra. Quando la fascia passa da F3 a F1/F2,
+l'integrazione termina invece la sola sessione notturna, revoca
+l'autorizzazione e registra **Fascia F3 terminata** come motivo dell'arresto.
 
 ### Bilanciamento e calcolo FV
 
