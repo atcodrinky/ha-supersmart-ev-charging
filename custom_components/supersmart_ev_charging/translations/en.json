@@ -67,6 +67,7 @@
         "data": {
           "live_activity_services": "Companion App phones",
           "live_activity_title": "Vehicle name / displayed title",
+          "live_activity_update_mode": "Updates while charging",
           "live_activity_soc_step": "Update for each SOC change (%)",
           "live_activity_end_behavior": "End-of-charge behavior",
           "live_activity_clear_minutes": "Automatically clear after (minutes)",
@@ -174,6 +175,7 @@
           "live_activity_enabled": "Enable Live Activity / Live Update",
           "live_activity_services": "Companion App phones",
           "live_activity_title": "Vehicle name / displayed title",
+          "live_activity_update_mode": "Updates while charging",
           "live_activity_soc_step": "Update for each SOC change (%)",
           "live_activity_end_behavior": "End-of-charge behavior",
           "live_activity_clear_minutes": "Automatically clear after (minutes)",
@@ -239,6 +241,12 @@
         "manual": "Keep until manually dismissed",
         "immediate": "Close immediately",
         "automatic": "Clear automatically"
+      }
+    },
+    "live_activity_update_mode": {
+      "options": {
+        "progress": "SOC progress",
+        "events_only": "Important events only"
       }
     }
   },

@@ -47,6 +47,7 @@ CONF_LIVE_ACTIVITY_ENABLED       = "live_activity_enabled"
 CONF_LIVE_ACTIVITY_SERVICES      = "live_activity_services"
 CONF_LIVE_ACTIVITY_TITLE         = "live_activity_title"
 CONF_LIVE_ACTIVITY_DASHBOARD_URL = "live_activity_dashboard_url"
+CONF_LIVE_ACTIVITY_UPDATE_MODE   = "live_activity_update_mode"
 CONF_LIVE_ACTIVITY_SOC_STEP      = "live_activity_soc_step"
 CONF_LIVE_ACTIVITY_END_BEHAVIOR  = "live_activity_end_behavior"
 CONF_LIVE_ACTIVITY_CLEAR_MINUTES = "live_activity_clear_minutes"
@@ -88,6 +89,8 @@ LIVE_STOP_TEMPLATE_KEYS = (
 )
 
 DEFAULT_LIVE_ACTIVITY_SOC_STEP = 5
+LIVE_ACTIVITY_UPDATE_PROGRESS = "progress"
+LIVE_ACTIVITY_UPDATE_EVENTS_ONLY = "events_only"
 LIVE_ACTIVITY_MIN_UPDATE_SECONDS = 300
 LIVE_ACTIVITY_END_SHIFT_MINUTES = 15
 LIVE_ACTIVITY_START_DELAY_SECONDS = 10

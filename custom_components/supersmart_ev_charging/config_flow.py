@@ -58,6 +58,7 @@ from .const import (
     CONF_LIVE_ACTIVITY_SERVICES,
     CONF_LIVE_ACTIVITY_TITLE,
     CONF_LIVE_ACTIVITY_DASHBOARD_URL,
+    CONF_LIVE_ACTIVITY_UPDATE_MODE,
     CONF_LIVE_ACTIVITY_SOC_STEP,
     CONF_LIVE_ACTIVITY_END_BEHAVIOR,
     CONF_LIVE_ACTIVITY_CLEAR_MINUTES,
@@ -96,6 +97,8 @@ from .const import (
     DEFAULT_VEHICLE_SOC_TARGET,
     DEFAULT_LIVE_ACTIVITY_SOC_STEP,
     DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
+    LIVE_ACTIVITY_UPDATE_PROGRESS,
+    LIVE_ACTIVITY_UPDATE_EVENTS_ONLY,
     LIVE_ACTIVITY_END_AUTOMATIC,
     LIVE_ACTIVITY_END_IMMEDIATE,
     LIVE_ACTIVITY_END_MANUAL,
@@ -181,6 +184,19 @@ def _live_soc_step_selector() -> selector.NumberSelector:
             max=25,
             step=1,
             mode=selector.NumberSelectorMode.BOX,
+        )
+    )
+
+
+def _live_update_mode_selector() -> selector.SelectSelector:
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                LIVE_ACTIVITY_UPDATE_PROGRESS,
+                LIVE_ACTIVITY_UPDATE_EVENTS_ONLY,
+            ],
+            translation_key="live_activity_update_mode",
+            mode=selector.SelectSelectorMode.DROPDOWN,
         )
     )
 
@@ -538,6 +554,13 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._data.get(CONF_INSTANCE_NAME, "SuperSmart EV Charging"),
                     ),
                 ): selector.TextSelector(),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_UPDATE_MODE,
+                    default=self._data.get(
+                        CONF_LIVE_ACTIVITY_UPDATE_MODE,
+                        LIVE_ACTIVITY_UPDATE_PROGRESS,
+                    ),
+                ): _live_update_mode_selector(),
                 vol.Required(
                     CONF_LIVE_ACTIVITY_SOC_STEP,
                     default=self._data.get(
@@ -911,6 +934,13 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                     CONF_LIVE_ACTIVITY_TITLE,
                     default=d.get(CONF_LIVE_ACTIVITY_TITLE, self._config_entry.title),
                 ): selector.TextSelector(),
+                vol.Required(
+                    CONF_LIVE_ACTIVITY_UPDATE_MODE,
+                    default=d.get(
+                        CONF_LIVE_ACTIVITY_UPDATE_MODE,
+                        LIVE_ACTIVITY_UPDATE_PROGRESS,
+                    ),
+                ): _live_update_mode_selector(),
                 vol.Required(
                     CONF_LIVE_ACTIVITY_SOC_STEP,
                     default=d.get(

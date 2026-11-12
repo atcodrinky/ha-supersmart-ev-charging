@@ -153,12 +153,16 @@ dell'istanza ma è modificabile separatamente, per esempio `Škoda Elroq`,
 `Tesla Model 3` o `Auto di Marco`.
 
 È possibile scegliere uno o più servizi diretti `notify.mobile_app_*`, il nome
-mostrato, una soglia di aggiornamento SOC dall'1% al 25% (predefinita 5%) e un
-collegamento facoltativo alla plancia. Sono accettati percorsi relativi come
+mostrato, la modalità degli aggiornamenti e un collegamento facoltativo alla
+plancia. Con **Avanzamento SOC** la barra viene aggiornata secondo una soglia
+dall'1% al 25% (predefinita 5%); con **Solo eventi importanti** non vengono
+inviate push intermedie e la Live Activity viene aggiornata soltanto all'avvio
+e alla conclusione o arresto della ricarica. Sono accettati percorsi relativi come
 `/lovelace/auto` e indirizzi HTTPS completi. Un tocco sulla Live Activity apre
 direttamente quella pagina.
 
-Gli aggiornamenti intermedi sono silenziosi e usano la stessa attività. La vista
+In modalità Avanzamento SOC gli aggiornamenti intermedi sono silenziosi e usano
+la stessa attività. La vista
 compatta mostra il SOC con icona batteria, una barra percentuale, la modalità,
 il target attivo e l'ora di fine stimata su due righe. I testi predefiniti sono
 `☀️ FV`, `🌙 F3` e `💪 MAX`. Il target è quello utente in F3 e

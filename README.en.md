@@ -151,11 +151,16 @@ but can be edited separately, for example `Škoda Elroq`, `Tesla Model 3`, or
 `Marco's car`.
 
 You can select one or more direct `notify.mobile_app_*` services, the displayed
-name, an SOC update threshold from 1% to 25% (5% by default), and an optional dashboard link.
+name, the update mode, and an optional dashboard link. With **SOC progress**,
+the bar is refreshed at a configurable threshold from 1% to 25% (5% by
+default); with **Important events only**, no intermediate pushes are sent and
+the Live Activity is updated only when charging starts and when it finishes or
+stops.
 Relative paths such as `/lovelace/ev` and full HTTPS addresses are accepted.
 Tapping the activity opens that page directly.
 
-Intermediate updates are silent and reuse the same activity. The compact view
+In SOC progress mode, intermediate updates are silent and reuse the same
+activity. The compact view
 shows SOC with a battery icon, a percentage progress bar, charging mode, active
 target, and estimated finish time on two lines. Default labels are `☀️ PV`,
 `🌙 Off-peak`, and `💪 MAX`. The user target is used during off-peak

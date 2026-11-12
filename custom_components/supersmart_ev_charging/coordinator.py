@@ -69,6 +69,7 @@ from .const import (
     CONF_LIVE_ACTIVITY_SERVICES,
     CONF_LIVE_ACTIVITY_TITLE,
     CONF_LIVE_ACTIVITY_DASHBOARD_URL,
+    CONF_LIVE_ACTIVITY_UPDATE_MODE,
     CONF_LIVE_ACTIVITY_SOC_STEP,
     CONF_LIVE_ACTIVITY_END_BEHAVIOR,
     CONF_LIVE_ACTIVITY_CLEAR_MINUTES,
@@ -113,6 +114,8 @@ from .const import (
     DEFAULT_PV_START_CONFIRM_CYCLES,
     DEFAULT_LIVE_ACTIVITY_SOC_STEP,
     DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
+    LIVE_ACTIVITY_UPDATE_PROGRESS,
+    LIVE_ACTIVITY_UPDATE_EVENTS_ONLY,
     LIVE_ACTIVITY_MIN_UPDATE_SECONDS,
     LIVE_ACTIVITY_END_SHIFT_MINUTES,
     LIVE_ACTIVITY_START_DELAY_SECONDS,
@@ -278,6 +281,9 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._live_activity_dashboard_url = str(
             d.get(CONF_LIVE_ACTIVITY_DASHBOARD_URL, "")
         ).strip()
+        self._live_activity_update_mode = str(
+            d.get(CONF_LIVE_ACTIVITY_UPDATE_MODE, LIVE_ACTIVITY_UPDATE_PROGRESS)
+        )
         self._live_activity_soc_step = int(
             d.get(CONF_LIVE_ACTIVITY_SOC_STEP, DEFAULT_LIVE_ACTIVITY_SOC_STEP)
         )
@@ -1397,6 +1403,12 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self._live_start_task = self.hass.async_create_task(
                     self._start_live_activity_after_delay()
                 )
+            return
+
+        # In event-only mode the activity is sent when charging starts and
+        # when it ends.  Avoid every intermediate push (including silent
+        # pushes), which can otherwise be mirrored as alerts by Apple Watch.
+        if self._live_activity_update_mode == LIVE_ACTIVITY_UPDATE_EVENTS_ONLY:
             return
 
         data = self.data or {}

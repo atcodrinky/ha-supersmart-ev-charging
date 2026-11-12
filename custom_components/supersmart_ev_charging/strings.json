@@ -67,6 +67,7 @@
         "data": {
           "live_activity_services": "Telefoni Companion App",
           "live_activity_title": "Nome auto / titolo mostrato",
+          "live_activity_update_mode": "Aggiornamenti durante la ricarica",
           "live_activity_soc_step": "Aggiorna ogni variazione SOC (%)",
           "live_activity_end_behavior": "Comportamento a fine ricarica",
           "live_activity_clear_minutes": "Cancella automaticamente dopo (minuti)",
@@ -174,6 +175,7 @@
           "live_activity_enabled": "Abilita Live Activity / Live Update",
           "live_activity_services": "Telefoni Companion App",
           "live_activity_title": "Nome auto / titolo mostrato",
+          "live_activity_update_mode": "Aggiornamenti durante la ricarica",
           "live_activity_soc_step": "Aggiorna ogni variazione SOC (%)",
           "live_activity_end_behavior": "Comportamento a fine ricarica",
           "live_activity_clear_minutes": "Cancella automaticamente dopo (minuti)",
@@ -239,6 +241,12 @@
         "manual": "Mantieni fino alla rimozione manuale",
         "immediate": "Chiudi immediatamente",
         "automatic": "Cancella automaticamente"
+      }
+    },
+    "live_activity_update_mode": {
+      "options": {
+        "progress": "Avanzamento SOC",
+        "events_only": "Solo eventi importanti"
       }
     }
   },
