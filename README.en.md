@@ -26,6 +26,7 @@ equivalent entities and commands.
 | ⚡ **Load balancing** | Limits charging according to the total operating threshold and household consumption |
 | 🔋 **Dual SOC target** | User target for off-peak charging and vehicle target for PV/Force Charge |
 | 🚀 **Force Charge** | Starts charging regardless of tariff band and PV surplus |
+| 🗓️ **Scheduled departure** | Calculates the latest safe start to reach the vehicle target by the chosen deadline |
 | 🛑 **Master Stop** | Immediately revokes authorization and blocks every charging mode |
 | 🔄 **SOC synchronization** | Synchronizes the vehicle target with the car charge limit when configured |
 | ⏱️ **Charging estimates** | Calculates remaining time and completion time from SOC, usable capacity and actual power |
@@ -200,6 +201,21 @@ is missing, the off-peak user target cannot be checked, estimates show `N/A`,
 the Live Activity displays `SOC N/A`, and no false target-reached events are
 generated. Master Stop and electrical safety protections always remain active.
 
+### Optional step — Scheduled departure
+
+**Scheduled departure** makes the vehicle ready at its vehicle target by a
+chosen date and time. Set the **Ready by** entity manually or update it from an
+automation, for example from a work-shift calendar. Its switch enables or
+suspends the plan without deleting the deadline.
+
+The integration calculates required energy, charging efficiency and a safety
+margin. Before the latest safe start it keeps using PV and off-peak charging;
+from that point it bypasses tariff preferences and uses dynamic load balancing
+until the vehicle target is reached. Master Stop, electrical protections and
+Force Charge keep their higher priority. Margin, efficiency and optional
+at-risk notifications can be changed with **Save & Close** without restarting
+Home Assistant.
+
 ### Final step — MQTT commands
 
 This step is displayed when MQTT is enabled.
@@ -251,7 +267,7 @@ automatically to instances created with v1.2.0 or later.
 
 | Sensor | Description |
 |---|---|
-| Charging Mode | `idle`, `pv_surplus`, `night`, `force` or `master_stop` |
+| Charging Mode | `idle`, `pv_surplus`, `night`, `force`, `scheduled_departure` or `master_stop` |
 | PV Surplus | PV margin already corrected by the configured import/export offset |
 | Active SOC Target | Vehicle target in PV/Force, user target during off-peak charging |
 | Charging Time Remaining | Estimated duration at the instantaneous charging power |
@@ -260,6 +276,8 @@ automatically to instances created with v1.2.0 or later.
 | Actual Wallbox Current | Estimate calculated from wallbox power and voltage |
 | Last Stop Reason | Target reached, Master Stop, insufficient margin, PV loss, or wallbox stop |
 | Vehicle Data Status | SOC availability and whether control is currently entrusted to the vehicle |
+| Scheduled Departure Status | Waiting, opportunistic charging, required charging, ready or at risk |
+| Estimated Scheduled Start | Calculated latest safe time to begin charging |
 
 ### Switches
 
@@ -269,6 +287,13 @@ automatically to instances created with v1.2.0 or later.
 | Force Charge | Charges to the vehicle SOC target with contract load balancing |
 | Solar Controller Active | Enables or disables PV-surplus control |
 | Night Charging (F3) | Enables or disables off-peak charging |
+| Scheduled Departure | Enables the Ready by plan |
+
+### Date and time
+
+| Entity | Purpose |
+|---|---|
+| Ready by | Deadline editable manually or with `datetime.set_value` |
 
 ### Numbers
 
@@ -336,6 +361,9 @@ SOC ≥ vehicle target? ───── yes ─→ Absolute stop + revoke
                          │ no
                          ▼
 Force Charge? ───────────── yes ─→ Normal + vehicle target
+                         │ no       + contract load balancing
+                         ▼
+Latest departure start? ── yes ─→ Normal + vehicle target
                          │ no       + contract load balancing
                          ▼
 Usable PV surplus? ──────── yes ─→ Solar + vehicle target

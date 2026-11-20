@@ -15,7 +15,13 @@
           "live_activity_enabled": "Configure Live Activity / Live Update now",
           "initial_user_soc_target": "User SOC target – used for NIGHT F3 charging (%)",
           "initial_vehicle_soc_target": "Vehicle SOC target – used for PV SURPLUS & FORCE (%)",
-          "allow_charging_without_soc": "Allow charging when SOC is unavailable"
+          "allow_charging_without_soc": "Allow charging when SOC is unavailable",
+          "departure_enabled": "Enable Scheduled departure",
+          "departure_safety_margin_min": "Safety margin (minutes)",
+          "departure_charging_efficiency": "Estimated charging efficiency (%)",
+          "departure_risk_notifications": "Notify when the target is at risk",
+          "departure_risk_delay_min": "Minimum delay before warning (minutes)",
+          "departure_recovery_notifications": "Notify when the plan recovers"
         },
         "data_description": {
           "instance_name": "Recommended pattern: SuperSmart VEHICLE_NAME Charging. Example: SuperSmart Elroq Charging → sensor.supersmart_elroq_charging_…",
@@ -111,6 +117,7 @@
           "entities": "Entities and sensors",
           "notifications": "Notifications",
           "live_activity": "Live Activity / Live Update",
+          "scheduled_departure": "Scheduled departure",
           "save_and_close": "✅ Save & Close"
         }
       },
@@ -146,6 +153,18 @@
           "button_revoke_entity": "Optional revoke authorization button",
           "tariff_entity": "* Tariff sensor",
           "tariff_offpeak_value": "Off-peak tariff value (e.g. F3)"
+        }
+      },
+      "scheduled_departure": {
+        "title": "SuperSmart EV Charging – Scheduled departure",
+        "description": "Configure the latest safe start calculation. Set the deadline with the Ready by entity and enable the plan with its switch.",
+        "data": {
+          "departure_enabled": "Enable Scheduled departure",
+          "departure_safety_margin_min": "Safety margin (minutes)",
+          "departure_charging_efficiency": "Estimated charging efficiency (%)",
+          "departure_risk_notifications": "Notify when the target is at risk",
+          "departure_risk_delay_min": "Minimum delay before warning (minutes)",
+          "departure_recovery_notifications": "Notify when the plan recovers"
         }
       },
       "notifications": {
@@ -198,6 +217,7 @@
           "live_message_pv": "PV charging",
           "live_message_night": "Off-peak charging",
           "live_message_force": "Force Charge",
+          "live_message_departure": "Scheduled departure",
           "live_message_unknown": "Unknown mode",
           "live_message_no_soc": "SOC unavailable",
           "live_critical_text": "Top-right SOC"
@@ -259,6 +279,7 @@
           "pv_surplus": "PV Surplus",
           "night": "Night F3",
           "force": "Force",
+          "scheduled_departure": "Scheduled departure",
           "master_stop": "Master Stop"
         }
       },
@@ -289,13 +310,27 @@
           "soc_unavailable_blocked": "SOC unavailable – charging blocked",
           "soc_unavailable_vehicle_control": "SOC unavailable – control entrusted to vehicle"
         }
-      }
+      },
+      "departure_status": {
+        "name": "Scheduled departure status",
+        "state": {
+          "disabled": "Disabled", "not_scheduled": "No deadline", "expired": "Expired",
+          "vehicle_not_connected": "Vehicle not connected", "waiting": "Waiting",
+          "charging_opportunistically": "Opportunistic charging", "charging_for_departure": "Charging for departure",
+          "ready": "Vehicle ready", "at_risk": "Target at risk", "soc_unavailable": "SOC unavailable"
+        }
+      },
+      "scheduled_start": { "name": "Estimated scheduled start" }
     },
     "switch": {
       "master_stop": { "name": "Master Stop" },
       "force_charge": { "name": "Force Charge" },
       "solar_controller": { "name": "Solar Controller Active" },
-      "night_charging": { "name": "Night Charging (F3)" }
+      "night_charging": { "name": "Night Charging (F3)" },
+      "scheduled_departure": { "name": "Scheduled departure" }
+    },
+    "datetime": {
+      "departure_time": { "name": "Ready by" }
     },
     "number": {
       "user_soc_target": { "name": "User SOC Target (Night F3)" },

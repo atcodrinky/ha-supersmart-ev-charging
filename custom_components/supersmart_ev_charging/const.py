@@ -6,6 +6,12 @@ CONF_INSTANCE_NAME = "instance_name"
 CONF_INITIAL_USER_SOC_TARGET = "initial_user_soc_target"
 CONF_INITIAL_VEHICLE_SOC_TARGET = "initial_vehicle_soc_target"
 CONF_ALLOW_CHARGING_WITHOUT_SOC = "allow_charging_without_soc"
+CONF_DEPARTURE_ENABLED = "departure_enabled"
+CONF_DEPARTURE_SAFETY_MARGIN_MIN = "departure_safety_margin_min"
+CONF_DEPARTURE_CHARGING_EFFICIENCY = "departure_charging_efficiency"
+CONF_DEPARTURE_RISK_NOTIFICATIONS = "departure_risk_notifications"
+CONF_DEPARTURE_RISK_DELAY_MIN = "departure_risk_delay_min"
+CONF_DEPARTURE_RECOVERY_NOTIFICATIONS = "departure_recovery_notifications"
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
 
 # ── Config entry keys ──────────────────────────────────────────────────────────
@@ -55,6 +61,7 @@ CONF_LIVE_ACTIVITY_CUSTOMIZE     = "live_activity_customize"
 CONF_LIVE_MESSAGE_PV             = "live_message_pv"
 CONF_LIVE_MESSAGE_NIGHT          = "live_message_night"
 CONF_LIVE_MESSAGE_FORCE          = "live_message_force"
+CONF_LIVE_MESSAGE_DEPARTURE      = "live_message_departure"
 CONF_LIVE_MESSAGE_UNKNOWN        = "live_message_unknown"
 CONF_LIVE_MESSAGE_NO_SOC         = "live_message_no_soc"
 CONF_LIVE_CRITICAL_TEXT          = "live_critical_text"
@@ -72,6 +79,7 @@ LIVE_CHARGING_TEMPLATE_KEYS = (
     CONF_LIVE_MESSAGE_PV,
     CONF_LIVE_MESSAGE_NIGHT,
     CONF_LIVE_MESSAGE_FORCE,
+    CONF_LIVE_MESSAGE_DEPARTURE,
     CONF_LIVE_MESSAGE_UNKNOWN,
     CONF_LIVE_MESSAGE_NO_SOC,
     CONF_LIVE_CRITICAL_TEXT,
@@ -150,6 +158,10 @@ DEFAULT_SAFETY_MARGIN_W      = 0          # la YAML non usa un margine fisso sep
 DEFAULT_NIGHT_POWER_LIMIT_W  = 3000       # input_number.ev_limite_notturno_w
 DEFAULT_USER_SOC_TARGET      = 50         # input_number.limite_batteria_manuale
 DEFAULT_VEHICLE_SOC_TARGET   = 80         # input_number.limite_batteria_auto
+DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN = 30
+DEFAULT_DEPARTURE_CHARGING_EFFICIENCY = 90
+DEFAULT_DEPARTURE_RISK_DELAY_MIN = 10
+DEPARTURE_RISK_CONFIRM_SECONDS = 300
 
 # ── Charging current limits ────────────────────────────────────────────────────
 DEFAULT_MIN_CHARGE_CURRENT_A = 6          # minimo assoluto IEC 61851
@@ -200,6 +212,7 @@ CHARGING_MODE_IDLE        = "idle"
 CHARGING_MODE_PV_SURPLUS  = "pv_surplus"
 CHARGING_MODE_NIGHT       = "night"
 CHARGING_MODE_FORCE       = "force"
+CHARGING_MODE_DEPARTURE   = "scheduled_departure"
 CHARGING_MODE_MASTER_STOP = "master_stop"
 
 CHARGING_MODES = [
@@ -207,7 +220,32 @@ CHARGING_MODES = [
     CHARGING_MODE_PV_SURPLUS,
     CHARGING_MODE_NIGHT,
     CHARGING_MODE_FORCE,
+    CHARGING_MODE_DEPARTURE,
     CHARGING_MODE_MASTER_STOP,
+]
+
+DEPARTURE_STATUS_DISABLED = "disabled"
+DEPARTURE_STATUS_NOT_SCHEDULED = "not_scheduled"
+DEPARTURE_STATUS_EXPIRED = "expired"
+DEPARTURE_STATUS_DISCONNECTED = "vehicle_not_connected"
+DEPARTURE_STATUS_WAITING = "waiting"
+DEPARTURE_STATUS_OPPORTUNISTIC = "charging_opportunistically"
+DEPARTURE_STATUS_CHARGING = "charging_for_departure"
+DEPARTURE_STATUS_READY = "ready"
+DEPARTURE_STATUS_AT_RISK = "at_risk"
+DEPARTURE_STATUS_SOC_UNAVAILABLE = "soc_unavailable"
+
+DEPARTURE_STATUSES = [
+    DEPARTURE_STATUS_DISABLED,
+    DEPARTURE_STATUS_NOT_SCHEDULED,
+    DEPARTURE_STATUS_EXPIRED,
+    DEPARTURE_STATUS_DISCONNECTED,
+    DEPARTURE_STATUS_WAITING,
+    DEPARTURE_STATUS_OPPORTUNISTIC,
+    DEPARTURE_STATUS_CHARGING,
+    DEPARTURE_STATUS_READY,
+    DEPARTURE_STATUS_AT_RISK,
+    DEPARTURE_STATUS_SOC_UNAVAILABLE,
 ]
 
 VEHICLE_DATA_AVAILABLE = "available"
@@ -254,11 +292,16 @@ SENSOR_WALLBOX_CURRENT_TARGET = "wallbox_current_target"
 SENSOR_WALLBOX_CURRENT_ACTUAL = "wallbox_current_actual"
 SENSOR_LAST_STOP_REASON       = "last_stop_reason"
 SENSOR_VEHICLE_DATA_STATUS    = "vehicle_data_status"
+SENSOR_DEPARTURE_STATUS       = "departure_status"
+SENSOR_SCHEDULED_START        = "scheduled_start"
 
 SWITCH_MASTER_STOP      = "master_stop"
 SWITCH_FORCE_CHARGE     = "force_charge"
 SWITCH_SOLAR_CONTROLLER = "solar_controller"
 SWITCH_NIGHT_CHARGING   = "night_charging"
+SWITCH_DEPARTURE        = "scheduled_departure"
+
+DATETIME_DEPARTURE_TIME = "departure_time"
 
 NUMBER_USER_SOC_TARGET    = "user_soc_target"
 NUMBER_VEHICLE_SOC_TARGET = "vehicle_soc_target"

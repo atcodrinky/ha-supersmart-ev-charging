@@ -7,6 +7,7 @@ from typing import Any
 from .const import (
     CONF_LIVE_CRITICAL_TEXT,
     CONF_LIVE_MESSAGE_FORCE,
+    CONF_LIVE_MESSAGE_DEPARTURE,
     CONF_LIVE_MESSAGE_NIGHT,
     CONF_LIVE_MESSAGE_NO_SOC,
     CONF_LIVE_MESSAGE_PV,
@@ -51,6 +52,7 @@ DEFAULT_NOTIFICATION_TEXTS: dict[str, dict[str, Any]] = {
             CONF_LIVE_MESSAGE_PV: "☀️ FV · 🎯 {target}%\n🕒 {charge_end_time}",
             CONF_LIVE_MESSAGE_NIGHT: "🌙 F3 · 🎯 {target}%\n🕒 {charge_end_time}",
             CONF_LIVE_MESSAGE_FORCE: "💪 MAX · 🎯 {target}%\n🕒 {charge_end_time}",
+            CONF_LIVE_MESSAGE_DEPARTURE: "🗓️ Partenza · 🎯 {target}%\n🕒 {charge_end_time}",
             CONF_LIVE_MESSAGE_UNKNOWN: "🔌 Ricarica · 🎯 {target}%\n🕒 {charge_end_time}",
             CONF_LIVE_MESSAGE_NO_SOC: "{mode} · SOC N/A",
             CONF_LIVE_CRITICAL_TEXT: "🔋 {soc}%",
@@ -68,12 +70,14 @@ DEFAULT_NOTIFICATION_TEXTS: dict[str, dict[str, Any]] = {
             "fv_surplus": "☀️ FV",
             "notturna_f3": "🌙 F3",
             "forza": "💪 MAX",
+            "partenza_programmata": "🗓️ Partenza",
             "sconosciuta": "🔌 Ricarica",
         },
         "modes": {
             "fv_surplus": "Surplus FV ☀️",
             "notturna_f3": "Notturna F3 🌙",
             "forza": "Forza ⚡",
+            "partenza_programmata": "Partenza programmata 🗓️",
             "sconosciuta": "Sconosciuta ❓",
         },
         "stop_reasons": {
@@ -103,6 +107,7 @@ DEFAULT_NOTIFICATION_TEXTS: dict[str, dict[str, Any]] = {
             CONF_LIVE_MESSAGE_PV: "☀️ PV · 🎯 {target}%\n🕒 {charge_end_time}",
             CONF_LIVE_MESSAGE_NIGHT: "🌙 Off-peak · 🎯 {target}%\n🕒 {charge_end_time}",
             CONF_LIVE_MESSAGE_FORCE: "💪 MAX · 🎯 {target}%\n🕒 {charge_end_time}",
+            CONF_LIVE_MESSAGE_DEPARTURE: "🗓️ Departure · 🎯 {target}%\n🕒 {charge_end_time}",
             CONF_LIVE_MESSAGE_UNKNOWN: "🔌 Charging · 🎯 {target}%\n🕒 {charge_end_time}",
             CONF_LIVE_MESSAGE_NO_SOC: "{mode} · SOC N/A",
             CONF_LIVE_CRITICAL_TEXT: "🔋 {soc}%",
@@ -120,12 +125,14 @@ DEFAULT_NOTIFICATION_TEXTS: dict[str, dict[str, Any]] = {
             "fv_surplus": "☀️ PV",
             "notturna_f3": "🌙 Off-peak",
             "forza": "💪 MAX",
+            "partenza_programmata": "🗓️ Departure",
             "sconosciuta": "🔌 Charging",
         },
         "modes": {
             "fv_surplus": "PV surplus ☀️",
             "notturna_f3": "Night / off-peak 🌙",
             "forza": "Force charge ⚡",
+            "partenza_programmata": "Scheduled departure 🗓️",
             "sconosciuta": "Unknown ❓",
         },
         "stop_reasons": {

@@ -15,7 +15,13 @@
           "live_activity_enabled": "Configura ora Live Activity / Live Update",
           "initial_user_soc_target": "Target SOC utente – usato per ricarica NOTTE F3 (%)",
           "initial_vehicle_soc_target": "Target SOC veicolo – usato per SURPLUS FV e FORZA (%)",
-          "allow_charging_without_soc": "Consenti la ricarica quando il SOC non è disponibile"
+          "allow_charging_without_soc": "Consenti la ricarica quando il SOC non è disponibile",
+          "departure_enabled": "Abilita Partenza programmata",
+          "departure_safety_margin_min": "Margine di sicurezza (minuti)",
+          "departure_charging_efficiency": "Rendimento di ricarica stimato (%)",
+          "departure_risk_notifications": "Notifica se il target è a rischio",
+          "departure_risk_delay_min": "Ritardo minimo per segnalare il rischio (minuti)",
+          "departure_recovery_notifications": "Notifica quando il piano torna regolare"
         },
         "data_description": {
           "instance_name": "Schema consigliato: SuperSmart NOME_AUTO Charging. Esempio: SuperSmart Elroq Charging → sensor.supersmart_elroq_charging_…",
@@ -111,6 +117,7 @@
           "entities": "Entità e sensori",
           "notifications": "Notifiche",
           "live_activity": "Live Activity / Live Update",
+          "scheduled_departure": "Partenza programmata",
           "save_and_close": "✅ Salva ed esci"
         }
       },
@@ -146,6 +153,18 @@
           "button_revoke_entity": "Button revoca autorizzazione opzionale",
           "tariff_entity": "* Sensore fascia tariffaria",
           "tariff_offpeak_value": "Valore fascia off-peak (es. F3)"
+        }
+      },
+      "scheduled_departure": {
+        "title": "SuperSmart EV Charging – Partenza programmata",
+        "description": "Imposta come calcolare l'ultimo orario utile. Data e ora si regolano dall'entità Auto pronta entro; lo switch abilita il piano.",
+        "data": {
+          "departure_enabled": "Abilita Partenza programmata",
+          "departure_safety_margin_min": "Margine di sicurezza (minuti)",
+          "departure_charging_efficiency": "Rendimento di ricarica stimato (%)",
+          "departure_risk_notifications": "Notifica se il target è a rischio",
+          "departure_risk_delay_min": "Ritardo minimo per segnalare il rischio (minuti)",
+          "departure_recovery_notifications": "Notifica quando il piano torna regolare"
         }
       },
       "notifications": {
@@ -198,6 +217,7 @@
           "live_message_pv": "Ricarica FV",
           "live_message_night": "Ricarica F3",
           "live_message_force": "Forza Ricarica",
+          "live_message_departure": "Partenza programmata",
           "live_message_unknown": "Modalità non identificata",
           "live_message_no_soc": "SOC non disponibile",
           "live_critical_text": "SOC in alto a destra"
@@ -259,6 +279,7 @@
           "pv_surplus": "Surplus FV",
           "night": "Notte F3",
           "force": "Forza",
+          "scheduled_departure": "Partenza programmata",
           "master_stop": "Master Stop"
         }
       },
@@ -289,13 +310,27 @@
           "soc_unavailable_blocked": "SOC non disponibile – ricarica bloccata",
           "soc_unavailable_vehicle_control": "SOC non disponibile – controllo affidato all'auto"
         }
-      }
+      },
+      "departure_status": {
+        "name": "Stato partenza programmata",
+        "state": {
+          "disabled": "Disattivata", "not_scheduled": "Nessun orario", "expired": "Scaduta",
+          "vehicle_not_connected": "Veicolo non collegato", "waiting": "In attesa",
+          "charging_opportunistically": "Ricarica opportunistica", "charging_for_departure": "Ricarica per la partenza",
+          "ready": "Auto pronta", "at_risk": "Target a rischio", "soc_unavailable": "SOC non disponibile"
+        }
+      },
+      "scheduled_start": { "name": "Avvio programmato stimato" }
     },
     "switch": {
       "master_stop": { "name": "Master Stop" },
       "force_charge": { "name": "Forza Ricarica" },
       "solar_controller": { "name": "Controller Solare Attivo" },
-      "night_charging": { "name": "Ricarica Notturna F3" }
+      "night_charging": { "name": "Ricarica Notturna F3" },
+      "scheduled_departure": { "name": "Partenza programmata" }
+    },
+    "datetime": {
+      "departure_time": { "name": "Auto pronta entro" }
     },
     "number": {
       "user_soc_target": { "name": "Target SOC utente (Notte F3)" },

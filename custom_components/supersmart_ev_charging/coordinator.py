@@ -21,6 +21,7 @@ from .calculations import (
     clamp_voltage,
     night_charge_should_stop,
     pv_current_values,
+    scheduled_departure_plan,
     soc_below_target,
     soc_target_reached,
     wallbox_current_from_power,
@@ -76,6 +77,7 @@ from .const import (
     CONF_LIVE_ACTIVITY_CUSTOMIZE,
     CONF_LIVE_CRITICAL_TEXT,
     CONF_LIVE_MESSAGE_FORCE,
+    CONF_LIVE_MESSAGE_DEPARTURE,
     CONF_LIVE_MESSAGE_NIGHT,
     CONF_LIVE_MESSAGE_NO_SOC,
     CONF_LIVE_MESSAGE_PV,
@@ -95,6 +97,12 @@ from .const import (
     CONF_INITIAL_USER_SOC_TARGET,
     CONF_INITIAL_VEHICLE_SOC_TARGET,
     CONF_ALLOW_CHARGING_WITHOUT_SOC,
+    CONF_DEPARTURE_ENABLED,
+    CONF_DEPARTURE_SAFETY_MARGIN_MIN,
+    CONF_DEPARTURE_CHARGING_EFFICIENCY,
+    CONF_DEPARTURE_RISK_NOTIFICATIONS,
+    CONF_DEPARTURE_RISK_DELAY_MIN,
+    CONF_DEPARTURE_RECOVERY_NOTIFICATIONS,
     DEFAULT_CONTRACT_POWER_W,
     DEFAULT_BATTERY_CAPACITY_KWH,
     DEFAULT_ALLOWED_IMPORT_W,
@@ -114,6 +122,10 @@ from .const import (
     DEFAULT_PV_START_CONFIRM_CYCLES,
     DEFAULT_LIVE_ACTIVITY_SOC_STEP,
     DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
+    DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN,
+    DEFAULT_DEPARTURE_CHARGING_EFFICIENCY,
+    DEFAULT_DEPARTURE_RISK_DELAY_MIN,
+    DEPARTURE_RISK_CONFIRM_SECONDS,
     LIVE_ACTIVITY_UPDATE_PROGRESS,
     LIVE_ACTIVITY_UPDATE_EVENTS_ONLY,
     LIVE_ACTIVITY_MIN_UPDATE_SECONDS,
@@ -132,6 +144,7 @@ from .const import (
     CHARGING_MODE_PV_SURPLUS,
     CHARGING_MODE_NIGHT,
     CHARGING_MODE_FORCE,
+    CHARGING_MODE_DEPARTURE,
     CHARGING_MODE_MASTER_STOP,
     STOP_REASON_NONE,
     STOP_REASON_MASTER_STOP,
@@ -146,6 +159,16 @@ from .const import (
     VEHICLE_DATA_AVAILABLE,
     VEHICLE_DATA_SOC_UNAVAILABLE_BLOCKED,
     VEHICLE_DATA_SOC_UNAVAILABLE_VEHICLE_CONTROL,
+    DEPARTURE_STATUS_DISABLED,
+    DEPARTURE_STATUS_NOT_SCHEDULED,
+    DEPARTURE_STATUS_EXPIRED,
+    DEPARTURE_STATUS_DISCONNECTED,
+    DEPARTURE_STATUS_WAITING,
+    DEPARTURE_STATUS_OPPORTUNISTIC,
+    DEPARTURE_STATUS_CHARGING,
+    DEPARTURE_STATUS_READY,
+    DEPARTURE_STATUS_AT_RISK,
+    DEPARTURE_STATUS_SOC_UNAVAILABLE,
 )
 from .live_activity import (
     build_live_payload,
@@ -324,6 +347,19 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self.allow_charging_without_soc: bool = bool(
             d.get(CONF_ALLOW_CHARGING_WITHOUT_SOC, False)
         )
+        self.scheduled_departure_enabled: bool = bool(d.get(CONF_DEPARTURE_ENABLED, False))
+        self._departure_margin_min = int(d.get(CONF_DEPARTURE_SAFETY_MARGIN_MIN, DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN))
+        self._departure_efficiency = float(d.get(CONF_DEPARTURE_CHARGING_EFFICIENCY, DEFAULT_DEPARTURE_CHARGING_EFFICIENCY))
+        self._departure_risk_notifications = bool(d.get(CONF_DEPARTURE_RISK_NOTIFICATIONS, False))
+        self._departure_risk_delay_min = int(d.get(CONF_DEPARTURE_RISK_DELAY_MIN, DEFAULT_DEPARTURE_RISK_DELAY_MIN))
+        self._departure_recovery_notifications = bool(d.get(CONF_DEPARTURE_RECOVERY_NOTIFICATIONS, False))
+        self.departure_time: datetime | None = None
+        self.departure_consumed: bool = False
+        self.departure_status: str = DEPARTURE_STATUS_NOT_SCHEDULED
+        self.scheduled_start_time: datetime | None = None
+        self._departure_risk_reason: str | None = None
+        self._departure_risk_since: datetime | None = None
+        self._departure_risk_notified: bool = False
         self.last_valid_vehicle_soc: float | None = None
         self.last_valid_vehicle_soc_at: datetime | None = None
 
@@ -415,6 +451,13 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         if isinstance(saved_last_soc_at, str):
             self.last_valid_vehicle_soc_at = dt_util.parse_datetime(saved_last_soc_at)
         saved_clear_at = saved.get("live_clear_at")
+        self.scheduled_departure_enabled = bool(
+            saved.get("scheduled_departure_enabled", self.scheduled_departure_enabled)
+        )
+        saved_departure = saved.get("departure_time")
+        if isinstance(saved_departure, str):
+            self.departure_time = dt_util.parse_datetime(saved_departure)
+        self.departure_consumed = bool(saved.get("departure_consumed", False))
         if (
             self._live_activity_end_behavior == LIVE_ACTIVITY_END_AUTOMATIC
             and isinstance(saved_clear_at, str)
@@ -547,6 +590,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             sun_below_horizon = sun_state == "below_horizon"
             data["sun_below_horizon"] = sun_below_horizon
 
+            # Pianificazione "Auto pronta entro". La potenza disponibile è
+            # sempre quella compatibile con il limite operativo totale.
+            self._refresh_departure_plan(data)
+
             # Target SOC attivo
             target_soc = active_soc_target(
                 self.charging_mode,
@@ -599,6 +646,87 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
 
         return data
 
+    def _refresh_departure_plan(
+        self, data: dict[str, Any], now: datetime | None = None
+    ) -> None:
+        """Aggiorna lo stato diagnostico e decide se forzare la partenza."""
+        now = now or dt_util.now()
+        status = DEPARTURE_STATUS_NOT_SCHEDULED
+        start = projected_end = None
+        required_minutes = delay_minutes = None
+        override = False
+        risk_reason = None
+
+        if not self.scheduled_departure_enabled:
+            status = DEPARTURE_STATUS_DISABLED
+        elif self.departure_time is None:
+            status = DEPARTURE_STATUS_NOT_SCHEDULED
+        elif self.departure_consumed:
+            status = DEPARTURE_STATUS_EXPIRED
+        elif self.departure_time <= now and not data.get("vehicle_connected", False):
+            self.departure_consumed = True
+            status = DEPARTURE_STATUS_EXPIRED
+            self._schedule_save()
+        elif not data.get("vehicle_soc_valid", False):
+            status = DEPARTURE_STATUS_SOC_UNAVAILABLE
+            override = bool(
+                data.get("vehicle_connected", False)
+                and self.allow_charging_without_soc
+            )
+            risk_reason = "soc_unavailable"
+        elif float(data.get("vehicle_soc", 0)) >= self.vehicle_soc_target:
+            status = DEPARTURE_STATUS_READY
+            self.departure_consumed = True
+            self._schedule_save()
+        else:
+            available_a = max(
+                DEFAULT_MIN_CHARGE_CURRENT_A,
+                self._contratto_balanced_current(data, use_night_limit=False),
+            )
+            plan = scheduled_departure_plan(
+                now=now,
+                departure_time=self.departure_time,
+                current_soc=float(data.get("vehicle_soc", 0)),
+                target_soc=self.vehicle_soc_target,
+                usable_capacity_kwh=self._battery_capacity_kwh,
+                charging_efficiency_percent=self._departure_efficiency,
+                available_power_w=available_a * float(data.get("wallbox_voltage_v", 230)),
+                safety_margin_minutes=self._departure_margin_min,
+            )
+            start = plan.scheduled_start
+            projected_end = plan.projected_end
+            required_minutes = plan.required_minutes
+            delay_minutes = plan.delay_minutes
+            connected = bool(data.get("vehicle_connected", False))
+            override = bool(connected and (start is None or now >= start or self.charging_mode == CHARGING_MODE_DEPARTURE))
+            if not connected:
+                status = DEPARTURE_STATUS_DISCONNECTED
+                if start is not None and now >= start:
+                    risk_reason = "vehicle_not_connected"
+            elif override:
+                status = DEPARTURE_STATUS_CHARGING
+            elif data.get("wallbox_state") == WB_STATE_CHARGING:
+                status = DEPARTURE_STATUS_OPPORTUNISTIC
+            else:
+                status = DEPARTURE_STATUS_WAITING
+            if delay_minutes is not None and delay_minutes >= self._departure_risk_delay_min:
+                risk_reason = "late"
+
+        if risk_reason and status != DEPARTURE_STATUS_SOC_UNAVAILABLE:
+            status = DEPARTURE_STATUS_AT_RISK
+        self.departure_status = status
+        self.scheduled_start_time = start
+        data.update({
+            "departure_status": status,
+            "departure_time": self.departure_time,
+            "scheduled_start_time": start,
+            "departure_projected_end": projected_end,
+            "departure_required_minutes": required_minutes,
+            "departure_delay_minutes": delay_minutes,
+            "departure_override_required": override,
+            "departure_risk_reason": risk_reason,
+        })
+
     # ── Loop principale di decisione ───────────────────────────────────────────
     async def async_update_charging_logic(
         self,
@@ -646,6 +774,9 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         amp_fv            = data.get("amp_fv_surplus", 0.0)
         amp_fv_target     = data.get("amp_fv_target", 0.0)
         voltage           = data.get("wallbox_voltage_v", 230.0)
+        now               = _now or dt_util.now()
+        self._refresh_departure_plan(data, now)
+        await self._handle_departure_risk_notification(data, now)
 
         # ── 0. Veicolo scollegato → reset tutto ───────────────────────────────
         # Le automazioni originali eseguono il reset sullo stato ``idle``
@@ -774,7 +905,35 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self.async_update_listeners()
             return
 
-        # ── 4. SURPLUS FV – lavora in tutte le fasce ──────────────────────────
+        # ── 4. PARTENZA PROGRAMMATA ─────────────────────────────────────────
+        # All'ultimo istante utile supera FV/F3, ma continua a rispettare
+        # Master Stop, target dell'auto e bilanciamento del carico domestico.
+        if data.get("departure_override_required", False):
+            amp_contratto = self._contratto_balanced_current(
+                data, use_night_limit=False
+            )
+            self.solar_controller_active = False
+            if self.charging_mode != CHARGING_MODE_DEPARTURE:
+                await self._set_mode(self._payload_normal)
+                if wb_state in WB_STATES_READY and amp_contratto >= 7:
+                    await self._send_limit(6.0)
+                    await self._authorize()
+                self.charging_mode = CHARGING_MODE_DEPARTURE
+            if wb_state == WB_STATE_CHARGING and amp_contratto >= 6:
+                await self._send_limit_if_changed(amp_contratto)
+            self.async_update_listeners()
+            return
+
+        # Una data modificata/disattivata durante la carica programmata esce
+        # in modo intelligente e lascia rivalutare subito FV/F3.
+        if self.charging_mode == CHARGING_MODE_DEPARTURE:
+            self.charging_mode = CHARGING_MODE_IDLE
+            if wb_state == WB_STATE_CHARGING:
+                await self._set_mode(self._payload_pause)
+                await self._revoke()
+            self.async_update_listeners()
+
+        # ── 5. SURPLUS FV – lavora in tutte le fasce ──────────────────────────
         # skip_in_f3: se F3 e SOC < limite_utente e amp_fv < 7 → lascia spazio alla logica notturna
         skip_in_f3 = (
             is_offpeak
@@ -1217,7 +1376,96 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 if self._live_clear_at is not None
                 else None
             ),
+            "scheduled_departure_enabled": self.scheduled_departure_enabled,
+            "departure_time": (
+                self.departure_time.isoformat() if self.departure_time else None
+            ),
+            "departure_consumed": self.departure_consumed,
         })
+
+    async def async_set_departure_time(self, value: datetime) -> None:
+        """Imposta una nuova scadenza e riattiva il piano."""
+        if value.tzinfo is None:
+            value = dt_util.as_local(value.replace(tzinfo=dt_util.UTC))
+        self.departure_time = value
+        self.departure_consumed = False
+        self._departure_risk_reason = None
+        self._departure_risk_since = None
+        self._departure_risk_notified = False
+        await self._save_state()
+        await self.async_update_charging_logic(trigger_entity="departure_time")
+
+    async def async_set_scheduled_departure_enabled(self, enabled: bool) -> None:
+        """Attiva/disattiva la modalità senza richiedere un riavvio."""
+        self.scheduled_departure_enabled = enabled
+        if enabled:
+            self.departure_consumed = False
+        await self._save_state()
+        await self.async_update_charging_logic(trigger_entity="scheduled_departure")
+
+    async def _handle_departure_risk_notification(
+        self, data: dict[str, Any], now: datetime
+    ) -> None:
+        """Invia una sola segnalazione dopo cinque minuti di rischio stabile."""
+        reason = data.get("departure_risk_reason")
+        if not reason:
+            if (
+                self._departure_risk_notified
+                and self._departure_recovery_notifications
+                and self.scheduled_departure_enabled
+                and self.departure_time is not None
+            ):
+                english = (
+                    self._notification_language == "en"
+                    or (
+                        self._notification_language == NOTIFICATION_LANGUAGE_AUTO
+                        and str(self.hass.config.language).lower().startswith("en")
+                    )
+                )
+                await self._notify(*(
+                    (
+                        "Scheduled departure recovered",
+                        "The charging plan is compatible with the departure time again.",
+                    ) if english else (
+                        "Partenza programmata ripristinata",
+                        "Il piano di ricarica è nuovamente compatibile con l'orario di partenza.",
+                    )
+                ))
+            self._departure_risk_reason = None
+            self._departure_risk_since = None
+            self._departure_risk_notified = False
+            return
+        if reason != self._departure_risk_reason:
+            self._departure_risk_reason = reason
+            self._departure_risk_since = now
+            self._departure_risk_notified = False
+            return
+        if (
+            self._departure_risk_notifications
+            and self._notify_services
+            and not self._departure_risk_notified
+            and self._departure_risk_since is not None
+            and (now - self._departure_risk_since).total_seconds()
+            >= DEPARTURE_RISK_CONFIRM_SECONDS
+        ):
+            departure = self.departure_time.astimezone().strftime("%H:%M") if self.departure_time else "N/A"
+            english = (
+                self._notification_language == "en"
+                or (
+                    self._notification_language == NOTIFICATION_LANGUAGE_AUTO
+                    and str(self.hass.config.language).lower().startswith("en")
+                )
+            )
+            await self._notify(*(
+                (
+                    "Scheduled departure at risk",
+                    f"The {self.vehicle_soc_target:.0f}% target may not be reached by {departure}.",
+                ) if english else (
+                    "Partenza programmata a rischio",
+                    f"Il target {self.vehicle_soc_target:.0f}% potrebbe non essere raggiunto entro le {departure}.",
+                )
+            ))
+            self._departure_risk_notified = True
 
     # ── Eventi, sync target e notifiche ──────────────────────────────────────
     def schedule_state_change(self, entity_id: str, old_state: str, new_state: str) -> None:
@@ -1484,6 +1732,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 "fv_surplus": CONF_LIVE_MESSAGE_PV,
                 "notturna_f3": CONF_LIVE_MESSAGE_NIGHT,
                 "forza": CONF_LIVE_MESSAGE_FORCE,
+                "partenza_programmata": CONF_LIVE_MESSAGE_DEPARTURE,
             }.get(mode, CONF_LIVE_MESSAGE_UNKNOWN)
         else:
             template_key = CONF_LIVE_MESSAGE_NO_SOC
@@ -1730,6 +1979,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
     def _notification_mode(self) -> str:
         if self.force_charge or self.charging_mode == CHARGING_MODE_FORCE:
             return "forza"
+        if self.charging_mode == CHARGING_MODE_DEPARTURE:
+            return "partenza_programmata"
         wb_mode = self._get_state(self._wallbox_mode_entity, "").lower()
         if self.solar_controller_active or wb_mode in ("solar", "solare"):
             return "fv_surplus"

@@ -18,6 +18,7 @@ from .const import (
     SWITCH_FORCE_CHARGE,
     SWITCH_SOLAR_CONTROLLER,
     SWITCH_NIGHT_CHARGING,
+    SWITCH_DEPARTURE,
 )
 from .coordinator import SuperSmartEvChargingCoordinator
 
@@ -40,6 +41,7 @@ async def async_setup_entry(
         ForceChargeSwitch(coordinator, entry),
         SolarControllerSwitch(coordinator, entry),
         NightChargingSwitch(coordinator, entry),
+        ScheduledDepartureSwitch(coordinator, entry),
     ])
 
 
@@ -182,3 +184,21 @@ class NightChargingSwitch(_Base):
             await self.coordinator._revoke()
             self.coordinator.charging_mode = "idle"
         self.coordinator.async_update_listeners()
+
+
+class ScheduledDepartureSwitch(_Base):
+    """Abilita il piano che rende l'auto pronta entro la data impostata."""
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, c, e):
+        super().__init__(c, e, SWITCH_DEPARTURE)
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.scheduled_departure_enabled
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_scheduled_departure_enabled(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_scheduled_departure_enabled(False)

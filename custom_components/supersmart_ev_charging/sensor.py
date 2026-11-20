@@ -32,6 +32,9 @@ from .const import (
     VEHICLE_DATA_AVAILABLE,
     VEHICLE_DATA_SOC_UNAVAILABLE_BLOCKED,
     WB_STATE_IDLE,
+    DEPARTURE_STATUSES,
+    SENSOR_DEPARTURE_STATUS,
+    SENSOR_SCHEDULED_START,
 )
 from .coordinator import SuperSmartEvChargingCoordinator
 
@@ -55,6 +58,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         WallboxCurrentActualSensor(coordinator, entry),
         LastStopReasonSensor(coordinator, entry),
         VehicleDataStatusSensor(coordinator, entry),
+        DepartureStatusSensor(coordinator, entry),
+        ScheduledStartSensor(coordinator, entry),
     ])
 
 
@@ -209,6 +214,31 @@ class LastStopReasonSensor(_Base):
     @property
     def native_value(self) -> str:
         return self.coordinator.last_stop_reason
+
+
+class DepartureStatusSensor(_Base):
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = DEPARTURE_STATUSES
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, c, e):
+        super().__init__(c, e, SENSOR_DEPARTURE_STATUS)
+
+    @property
+    def native_value(self) -> str:
+        return self.coordinator.departure_status
+
+
+class ScheduledStartSensor(_Base):
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:clock-start"
+
+    def __init__(self, c, e):
+        super().__init__(c, e, SENSOR_SCHEDULED_START)
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self.coordinator.scheduled_start_time
 
 
 class VehicleDataStatusSensor(_Base):

@@ -9,6 +9,7 @@ MODE_COLORS = {
     "fv_surplus": "#4CAF50",
     "notturna_f3": "#2196F3",
     "forza": "#FF9800",
+    "partenza_programmata": "#9C27B0",
     "sconosciuta": "#607D8B",
 }
 

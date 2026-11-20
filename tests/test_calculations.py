@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import unittest
+from datetime import datetime, timezone
 
 
 MODULE = Path(__file__).parents[1] / "custom_components/supersmart_ev_charging/calculations.py"
@@ -64,6 +65,7 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(calculations.active_soc_target("night", **args), 50)
         self.assertEqual(calculations.active_soc_target("pv_surplus", **args), 80)
         self.assertEqual(calculations.active_soc_target("force", **args), 80)
+        self.assertEqual(calculations.active_soc_target("scheduled_departure", **args), 80)
         self.assertEqual(
             calculations.active_soc_target(
                 "idle", False, True, args["user_target"], args["vehicle_target"]
@@ -90,6 +92,40 @@ class CalculationTests(unittest.TestCase):
     def test_missing_soc_never_reports_target_reached(self) -> None:
         self.assertFalse(calculations.soc_target_reached(100, False, 80))
         self.assertTrue(calculations.soc_target_reached(80, True, 80))
+
+    def test_scheduled_departure_calculates_latest_safe_start(self) -> None:
+        now = datetime(2026, 11, 20, 18, 0, tzinfo=timezone.utc)
+        departure = datetime(2026, 11, 21, 6, 0, tzinfo=timezone.utc)
+        plan = calculations.scheduled_departure_plan(
+            now=now,
+            departure_time=departure,
+            current_soc=40,
+            target_soc=80,
+            usable_capacity_kwh=60,
+            charging_efficiency_percent=100,
+            available_power_w=6000,
+            safety_margin_minutes=30,
+        )
+        self.assertEqual(plan.required_energy_kwh, 24)
+        self.assertEqual(plan.required_minutes, 240)
+        self.assertEqual(
+            plan.scheduled_start,
+            datetime(2026, 11, 21, 1, 30, tzinfo=timezone.utc),
+        )
+
+    def test_scheduled_departure_reports_delay(self) -> None:
+        now = datetime(2026, 11, 20, 6, 0, tzinfo=timezone.utc)
+        plan = calculations.scheduled_departure_plan(
+            now=now,
+            departure_time=datetime(2026, 11, 20, 7, 0, tzinfo=timezone.utc),
+            current_soc=20,
+            target_soc=80,
+            usable_capacity_kwh=60,
+            charging_efficiency_percent=100,
+            available_power_w=6000,
+            safety_margin_minutes=0,
+        )
+        self.assertEqual(plan.delay_minutes, 300)
 
     def test_night_session_stops_when_offpeak_period_ends(self) -> None:
         self.assertTrue(

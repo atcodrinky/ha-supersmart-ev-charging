@@ -17,6 +17,12 @@ from .const import (
     CONF_INITIAL_USER_SOC_TARGET,
     CONF_INITIAL_VEHICLE_SOC_TARGET,
     CONF_ALLOW_CHARGING_WITHOUT_SOC,
+    CONF_DEPARTURE_ENABLED,
+    CONF_DEPARTURE_SAFETY_MARGIN_MIN,
+    CONF_DEPARTURE_CHARGING_EFFICIENCY,
+    CONF_DEPARTURE_RISK_NOTIFICATIONS,
+    CONF_DEPARTURE_RISK_DELAY_MIN,
+    CONF_DEPARTURE_RECOVERY_NOTIFICATIONS,
     CONF_CONTRACT_POWER_W,
     CONF_BATTERY_CAPACITY_KWH,
     CONF_VEHICLE_SOC_ENTITY,
@@ -95,6 +101,9 @@ from .const import (
     DEFAULT_TARIFF_OFFPEAK_VALUE,
     DEFAULT_USER_SOC_TARGET,
     DEFAULT_VEHICLE_SOC_TARGET,
+    DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN,
+    DEFAULT_DEPARTURE_CHARGING_EFFICIENCY,
+    DEFAULT_DEPARTURE_RISK_DELAY_MIN,
     DEFAULT_LIVE_ACTIVITY_SOC_STEP,
     DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
     LIVE_ACTIVITY_UPDATE_PROGRESS,
@@ -330,6 +339,21 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_INITIAL_USER_SOC_TARGET,      default=DEFAULT_USER_SOC_TARGET):     vol.All(vol.Coerce(int), vol.Range(min=10, max=100)),
                 vol.Required(CONF_INITIAL_VEHICLE_SOC_TARGET,   default=DEFAULT_VEHICLE_SOC_TARGET):  vol.All(vol.Coerce(int), vol.Range(min=20, max=100)),
                 vol.Required(CONF_ALLOW_CHARGING_WITHOUT_SOC,   default=False): bool,
+                vol.Required(CONF_DEPARTURE_ENABLED,            default=False): bool,
+                vol.Required(
+                    CONF_DEPARTURE_SAFETY_MARGIN_MIN,
+                    default=DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN,
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=240)),
+                vol.Required(
+                    CONF_DEPARTURE_CHARGING_EFFICIENCY,
+                    default=DEFAULT_DEPARTURE_CHARGING_EFFICIENCY,
+                ): vol.All(vol.Coerce(int), vol.Range(min=50, max=100)),
+                vol.Required(CONF_DEPARTURE_RISK_NOTIFICATIONS, default=False): bool,
+                vol.Required(
+                    CONF_DEPARTURE_RISK_DELAY_MIN,
+                    default=DEFAULT_DEPARTURE_RISK_DELAY_MIN,
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=120)),
+                vol.Required(CONF_DEPARTURE_RECOVERY_NOTIFICATIONS, default=False): bool,
                 vol.Required(CONF_TARIFF_ENABLED,               default=True): bool,
                 vol.Required(CONF_MQTT_ENABLED,                 default=True): bool,
                 vol.Required(CONF_ENERGY_PUBLISH_ENABLED,       default=True): bool,
@@ -649,6 +673,7 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                 "entities",
                 "notifications",
                 "live_activity",
+                "scheduled_departure",
                 "save_and_close",
             ],
             description_placeholders={"instance": self._config_entry.title},
@@ -793,6 +818,60 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                     CONF_ALLOW_CHARGING_WITHOUT_SOC,
                     default=d.get(CONF_ALLOW_CHARGING_WITHOUT_SOC, False),
                 ): bool,
+            }),
+        )
+
+    async def async_step_scheduled_departure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Configure the scheduled-departure planner."""
+        d = self._values()
+        coordinator = self.hass.data.get(DOMAIN, {}).get(
+            self._config_entry.entry_id
+        )
+        if user_input is not None:
+            self._pending.update(user_input)
+            return await self.async_step_init()
+
+        enabled_default = d.get(CONF_DEPARTURE_ENABLED, False)
+        if coordinator is not None:
+            enabled_default = coordinator.scheduled_departure_enabled
+        return self.async_show_form(
+            step_id="scheduled_departure",
+            data_schema=vol.Schema({
+                vol.Required(
+                    CONF_DEPARTURE_ENABLED,
+                    default=enabled_default,
+                ): selector.BooleanSelector(),
+                vol.Required(
+                    CONF_DEPARTURE_SAFETY_MARGIN_MIN,
+                    default=d.get(
+                        CONF_DEPARTURE_SAFETY_MARGIN_MIN,
+                        DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN,
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=240)),
+                vol.Required(
+                    CONF_DEPARTURE_CHARGING_EFFICIENCY,
+                    default=d.get(
+                        CONF_DEPARTURE_CHARGING_EFFICIENCY,
+                        DEFAULT_DEPARTURE_CHARGING_EFFICIENCY,
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=50, max=100)),
+                vol.Required(
+                    CONF_DEPARTURE_RISK_NOTIFICATIONS,
+                    default=d.get(CONF_DEPARTURE_RISK_NOTIFICATIONS, False),
+                ): selector.BooleanSelector(),
+                vol.Required(
+                    CONF_DEPARTURE_RISK_DELAY_MIN,
+                    default=d.get(
+                        CONF_DEPARTURE_RISK_DELAY_MIN,
+                        DEFAULT_DEPARTURE_RISK_DELAY_MIN,
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=120)),
+                vol.Required(
+                    CONF_DEPARTURE_RECOVERY_NOTIFICATIONS,
+                    default=d.get(CONF_DEPARTURE_RECOVERY_NOTIFICATIONS, False),
+                ): selector.BooleanSelector(),
             }),
         )
 
@@ -1058,6 +1137,16 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
         return self._save_options(self._pending)
 
     def _save_options(self, updates: dict[str, Any]) -> FlowResult:
+        # Keep the runtime switch and the transactional Options Flow aligned.
+        # async_shutdown persists this value before the entry is reloaded.
+        if CONF_DEPARTURE_ENABLED in updates:
+            coordinator = self.hass.data.get(DOMAIN, {}).get(
+                self._config_entry.entry_id
+            )
+            if coordinator is not None:
+                coordinator.scheduled_departure_enabled = bool(
+                    updates[CONF_DEPARTURE_ENABLED]
+                )
         return self.async_create_entry(
             title="",
             data={**self._config_entry.options, **updates},

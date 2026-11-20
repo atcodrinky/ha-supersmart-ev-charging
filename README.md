@@ -26,6 +26,7 @@ comandi equivalenti.
 | ⚡ **Load balancing** | Limita la ricarica in base alla soglia operativa totale e ai consumi dell'abitazione |
 | 🔋 **Doppio target SOC** | Target utente per la notte e target veicolo per FV e Forza Ricarica |
 | 🚀 **Forza Ricarica** | Avvia la ricarica indipendentemente da fascia tariffaria e surplus FV |
+| 🗓️ **Partenza programmata** | Calcola l'ultimo avvio utile per raggiungere il target veicolo entro l'orario scelto |
 | 🛑 **Master Stop** | Revoca immediatamente l'autorizzazione e blocca ogni modalità di ricarica |
 | 🔄 **Sincronizzazione SOC** | Sincronizza il target veicolo con il limite di carica dell'auto, se configurato |
 | ⏱️ **Stime di ricarica** | Calcola tempo rimanente e ora di fine usando SOC, capacità utile e potenza reale |
@@ -204,6 +205,21 @@ SOC manca, il target utente F3 non può essere verificato, le stime mostrano
 `N/A`, la Live Activity indica `SOC N/A` e non vengono generati falsi eventi di
 target raggiunto. Master Stop e protezioni elettriche rimangono sempre attivi.
 
+### Passaggio facoltativo — Partenza programmata
+
+La modalità **Partenza programmata** rende l'auto pronta al target veicolo entro
+una data e ora scelte. Puoi impostare manualmente l'entità **Auto pronta entro**
+oppure aggiornarla da un'automazione, per esempio leggendo un turno dal
+calendario. Lo switch omonimo abilita o sospende il piano senza cancellare la
+scadenza.
+
+L'integrazione calcola energia necessaria, rendimento e margine di sicurezza.
+Prima dell'ultimo orario utile continua a sfruttare FV e F3; da quel momento
+bypassa le preferenze tariffarie e carica con bilanciamento dinamico fino al
+target veicolo. Restano prioritari Master Stop, protezioni elettriche e Forza
+Ricarica. Margine, rendimento stimato e notifiche facoltative se il target è a
+rischio sono modificabili con **Salva ed esci**, senza riavviare Home Assistant.
+
 ### Passaggio finale — Comandi MQTT
 
 Il passaggio compare quando MQTT è abilitato.
@@ -256,7 +272,7 @@ automaticamente alle istanze create dalla v1.2.0 in poi.
 
 | Sensore | Descrizione |
 |---|---|
-| Modalità ricarica | `idle`, `pv_surplus`, `night`, `force` o `master_stop` |
+| Modalità ricarica | `idle`, `pv_surplus`, `night`, `force`, `scheduled_departure` o `master_stop` |
 | Surplus FV | Margine FV già corretto con l'offset import/export configurato |
 | Target SOC attivo | Target veicolo in FV/Forza, target utente nella ricarica notturna |
 | Tempo ricarica rimanente | Durata stimata alla potenza istantanea |
@@ -265,6 +281,8 @@ automaticamente alle istanze create dalla v1.2.0 in poi.
 | Corrente effettiva wallbox | Stima ottenuta da potenza wallbox e tensione |
 | Ultimo motivo arresto | Target raggiunto, Master Stop, margine insufficiente, fine surplus o stop della wallbox |
 | Stato dati veicolo | Disponibilità del SOC e stato dell'eventuale controllo affidato all'auto |
+| Stato partenza programmata | Attesa, ricarica opportunistica, ricarica obbligatoria, pronta o a rischio |
+| Avvio programmato stimato | Ultimo orario utile calcolato per iniziare la ricarica |
 
 ### Switch
 
@@ -274,6 +292,13 @@ automaticamente alle istanze create dalla v1.2.0 in poi.
 | Forza Ricarica | Carica fino al target SOC veicolo con bilanciamento contrattuale |
 | Controller Solare Attivo | Abilita o disabilita la gestione del surplus FV |
 | Ricarica Notturna F3 | Abilita o disabilita la modalità off-peak |
+| Partenza programmata | Abilita il piano “Auto pronta entro” |
+
+### Data e ora
+
+| Entità | Funzione |
+|---|---|
+| Auto pronta entro | Scadenza modificabile manualmente o tramite `datetime.set_value` |
 
 ### Number
 
@@ -341,6 +366,9 @@ SOC ≥ target veicolo? ────── sì ─→ Stop assoluto + revoca
                          │ no
                          ▼
 Forza Ricarica? ───────────── sì ─→ Normale + target veicolo
+                         │ no        + bilanciamento contratto
+                         ▼
+Ultimo avvio per partenza? ── sì ─→ Normale + target veicolo
                          │ no        + bilanciamento contratto
                          ▼
 Surplus FV utilizzabile? ──── sì ─→ Solare + target veicolo

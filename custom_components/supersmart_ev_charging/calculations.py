@@ -1,6 +1,9 @@
 """Pure calculations shared by the coordinator and its regression tests."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+from typing import NamedTuple
+
 
 def clamp_voltage(voltage: float) -> float:
     """Apply the same 180–260 V guard used by the working YAML."""
@@ -53,7 +56,7 @@ def active_soc_target(
     if (
         force_charge
         or solar_controller_active
-        or charging_mode in ("force", "pv_surplus")
+        or charging_mode in ("force", "pv_surplus", "scheduled_departure")
     ):
         return vehicle_target
     return user_target
@@ -74,6 +77,62 @@ def charging_time_minutes(
         (target_soc - current_soc) / 100.0 * usable_capacity_kwh,
     )
     return remaining_kwh / power_kw * 60.0
+
+
+class DeparturePlan(NamedTuple):
+    """Pure scheduled-departure calculation result."""
+
+    required_energy_kwh: float
+    required_minutes: float | None
+    scheduled_start: datetime | None
+    projected_end: datetime | None
+    delay_minutes: float | None
+
+
+def scheduled_departure_plan(
+    *,
+    now: datetime,
+    departure_time: datetime,
+    current_soc: float,
+    target_soc: float,
+    usable_capacity_kwh: float,
+    charging_efficiency_percent: float,
+    available_power_w: float,
+    safety_margin_minutes: float,
+) -> DeparturePlan:
+    """Calculate energy, latest safe start and projected completion.
+
+    Battery capacity represents usable DC energy while wallbox power is AC,
+    therefore the configurable efficiency is applied before calculating time.
+    """
+    efficiency = min(100.0, max(50.0, charging_efficiency_percent)) / 100.0
+    required_battery_kwh = max(
+        0.0,
+        (target_soc - current_soc) / 100.0 * usable_capacity_kwh,
+    )
+    required_energy_kwh = required_battery_kwh / efficiency
+    power_kw = max(0.0, available_power_w) / 1000.0
+    if required_energy_kwh <= 0:
+        return DeparturePlan(0.0, 0.0, now, now, 0.0)
+    if power_kw <= 0.1:
+        return DeparturePlan(required_energy_kwh, None, None, None, None)
+
+    required_minutes = required_energy_kwh / power_kw * 60.0
+    projected_end = now + timedelta(minutes=required_minutes)
+    scheduled_start = departure_time - timedelta(
+        minutes=required_minutes + max(0.0, safety_margin_minutes)
+    )
+    delay_minutes = max(
+        0.0,
+        (projected_end - departure_time).total_seconds() / 60.0,
+    )
+    return DeparturePlan(
+        required_energy_kwh,
+        required_minutes,
+        scheduled_start,
+        projected_end,
+        delay_minutes,
+    )
 
 
 def soc_below_target(
