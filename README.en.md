@@ -222,6 +222,51 @@ pressed. **Cancel departure edit** restores the active deadline into the draft.
 Automations and calendars can still write directly to the effective **Ready by**
 entity.
 
+#### Mobile card example
+
+The following example edits the draft and applies it only after explicit
+confirmation. Replace the entity IDs with those created for your instance,
+which are listed under **Settings → Devices & services → Entities**.
+
+```yaml
+type: entities
+title: Scheduled departure
+show_header_toggle: false
+entities:
+  - entity: datetime.garage_supersmart_ev_charging_ready_by_draft
+    name: Ready by
+    icon: mdi:calendar-clock
+
+  - type: button
+    name: Apply schedule
+    icon: mdi:calendar-check
+    action_name: Confirm
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.garage_supersmart_ev_charging_confirm_ready_by
+      confirmation:
+        title: Confirm departure
+        text: Apply the selected date and time?
+        confirm_text: Apply
+        dismiss_text: Cancel
+
+  - type: button
+    name: Restore active value
+    icon: mdi:undo
+    action_name: Cancel
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.garage_supersmart_ev_charging_cancel_departure_edit
+```
+
+The picker changes only the draft. The charging plan is recalculated only when
+**Confirm** is pressed; **Cancel** reloads the last effective deadline into the
+draft.
+
 ### Final step — MQTT commands
 
 This step is displayed when MQTT is enabled.

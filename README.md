@@ -226,6 +226,52 @@ le modifiche al selettore non influenzano la ricarica finché non viene premuto
 nella bozza la scadenza attiva. Automazioni e calendari possono continuare a
 scrivere direttamente sull’entità **Auto pronta entro**.
 
+#### Esempio card mobile
+
+L’esempio seguente permette di modificare la bozza e applicarla soltanto dopo
+una conferma esplicita. Sostituisci gli entity ID con quelli effettivamente
+creati per la tua istanza, visibili in **Impostazioni → Dispositivi e servizi →
+Entità**.
+
+```yaml
+type: entities
+title: Partenza programmata
+show_header_toggle: false
+entities:
+  - entity: datetime.garage_supersmart_ev_charging_auto_pronta_entro_bozza
+    name: Auto pronta entro
+    icon: mdi:calendar-clock
+
+  - type: button
+    name: Applica programmazione
+    icon: mdi:calendar-check
+    action_name: Conferma
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.garage_supersmart_ev_charging_conferma_auto_pronta_entro
+      confirmation:
+        title: Conferma partenza
+        text: Applicare la data e l’ora selezionate?
+        confirm_text: Applica
+        dismiss_text: Annulla
+
+  - type: button
+    name: Ripristina valore attivo
+    icon: mdi:undo
+    action_name: Annulla
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.garage_supersmart_ev_charging_annulla_modifica_partenza
+```
+
+Il selettore modifica esclusivamente la bozza. Il piano viene ricalcolato solo
+premendo **Conferma**; **Annulla** ricarica nella bozza l’ultima scadenza
+effettivamente applicata.
+
 ### Passaggio finale — Comandi MQTT
 
 Il passaggio compare quando MQTT è abilitato.
