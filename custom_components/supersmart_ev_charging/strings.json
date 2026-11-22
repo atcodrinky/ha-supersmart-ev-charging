@@ -330,7 +330,12 @@
       "scheduled_departure": { "name": "Partenza programmata" }
     },
     "datetime": {
-      "departure_time": { "name": "Auto pronta entro" }
+      "departure_time": { "name": "Auto pronta entro" },
+      "departure_time_draft": { "name": "Auto pronta entro – bozza" }
+    },
+    "button": {
+      "confirm_departure_time": { "name": "Conferma Auto pronta entro" },
+      "cancel_departure_time_edit": { "name": "Annulla modifica partenza" }
     },
     "number": {
       "user_soc_target": { "name": "Target SOC utente (Notte F3)" },

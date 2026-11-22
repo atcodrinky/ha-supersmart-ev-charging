@@ -220,6 +220,12 @@ target veicolo. Restano prioritari Master Stop, protezioni elettriche e Forza
 Ricarica. Margine, rendimento stimato e notifiche facoltative se il target è a
 rischio sono modificabili con **Salva ed esci**, senza riavviare Home Assistant.
 
+Per l’uso manuale in plancia è disponibile anche **Auto pronta entro – bozza**:
+le modifiche al selettore non influenzano la ricarica finché non viene premuto
+**Conferma Auto pronta entro**. Il pulsante **Annulla modifica partenza** ripristina
+nella bozza la scadenza attiva. Automazioni e calendari possono continuare a
+scrivere direttamente sull’entità **Auto pronta entro**.
+
 ### Passaggio finale — Comandi MQTT
 
 Il passaggio compare quando MQTT è abilitato.
@@ -299,6 +305,14 @@ automaticamente alle istanze create dalla v1.2.0 in poi.
 | Entità | Funzione |
 |---|---|
 | Auto pronta entro | Scadenza modificabile manualmente o tramite `datetime.set_value` |
+| Auto pronta entro – bozza | Selettore sicuro per la plancia; non modifica il piano fino alla conferma |
+
+### Pulsanti
+
+| Pulsante | Funzione |
+|---|---|
+| Conferma Auto pronta entro | Valida la bozza e applica la scadenza in un’unica operazione |
+| Annulla modifica partenza | Ripristina nella bozza la scadenza attualmente attiva |
 
 ### Number
 

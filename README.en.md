@@ -216,6 +216,12 @@ Force Charge keep their higher priority. Margin, efficiency and optional
 at-risk notifications can be changed with **Save & Close** without restarting
 Home Assistant.
 
+For safe manual dashboard editing, **Ready by – draft** is also available:
+changing its picker never affects charging until **Confirm Ready by** is
+pressed. **Cancel departure edit** restores the active deadline into the draft.
+Automations and calendars can still write directly to the effective **Ready by**
+entity.
+
 ### Final step — MQTT commands
 
 This step is displayed when MQTT is enabled.
@@ -294,6 +300,14 @@ automatically to instances created with v1.2.0 or later.
 | Entity | Purpose |
 |---|---|
 | Ready by | Deadline editable manually or with `datetime.set_value` |
+| Ready by – draft | Safe dashboard picker; it does not change the plan until confirmed |
+
+### Buttons
+
+| Button | Purpose |
+|---|---|
+| Confirm Ready by | Validates and applies the draft deadline atomically |
+| Cancel departure edit | Restores the currently active deadline into the draft |
 
 ### Numbers
 

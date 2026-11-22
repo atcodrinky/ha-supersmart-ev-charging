@@ -28,6 +28,7 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
     Platform.NUMBER,
     Platform.DATETIME,
+    Platform.BUTTON,
 ]
 
 SERVICE_NAMES = ("authorize_charging", "revoke_charging", "set_charge_limit")

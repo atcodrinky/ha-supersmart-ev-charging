@@ -153,6 +153,14 @@ def scheduled_departure_should_override(
     )
 
 
+def departure_draft_is_valid(
+    value: datetime | None,
+    now: datetime,
+) -> bool:
+    """Return whether a draft deadline can safely be confirmed."""
+    return value is not None and value > now
+
+
 def soc_below_target(
     soc: float,
     soc_valid: bool,

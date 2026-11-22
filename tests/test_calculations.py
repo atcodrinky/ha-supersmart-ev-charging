@@ -148,6 +148,20 @@ class CalculationTests(unittest.TestCase):
             )
         )
 
+    def test_departure_draft_must_be_in_the_future(self) -> None:
+        now = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        self.assertFalse(calculations.departure_draft_is_valid(None, now))
+        self.assertFalse(
+            calculations.departure_draft_is_valid(
+                datetime(2026, 11, 22, 8, 59, tzinfo=timezone.utc), now
+            )
+        )
+        self.assertTrue(
+            calculations.departure_draft_is_valid(
+                datetime(2026, 11, 22, 19, 0, tzinfo=timezone.utc), now
+            )
+        )
+
     def test_night_session_stops_when_offpeak_period_ends(self) -> None:
         self.assertTrue(
             calculations.night_charge_should_stop(

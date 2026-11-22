@@ -302,6 +302,10 @@ SWITCH_NIGHT_CHARGING   = "night_charging"
 SWITCH_DEPARTURE        = "scheduled_departure"
 
 DATETIME_DEPARTURE_TIME = "departure_time"
+DATETIME_DEPARTURE_DRAFT = "departure_time_draft"
+
+BUTTON_CONFIRM_DEPARTURE = "confirm_departure_time"
+BUTTON_CANCEL_DEPARTURE = "cancel_departure_time_edit"
 
 NUMBER_USER_SOC_TARGET    = "user_soc_target"
 NUMBER_VEHICLE_SOC_TARGET = "vehicle_soc_target"

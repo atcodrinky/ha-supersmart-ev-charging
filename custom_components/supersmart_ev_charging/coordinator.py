@@ -10,6 +10,7 @@ from typing import Any
 from homeassistant.components import mqtt
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -23,6 +24,7 @@ from .calculations import (
     pv_current_values,
     scheduled_departure_plan,
     scheduled_departure_should_override,
+    departure_draft_is_valid,
     soc_below_target,
     soc_target_reached,
     wallbox_current_from_power,
@@ -355,6 +357,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._departure_risk_delay_min = int(d.get(CONF_DEPARTURE_RISK_DELAY_MIN, DEFAULT_DEPARTURE_RISK_DELAY_MIN))
         self._departure_recovery_notifications = bool(d.get(CONF_DEPARTURE_RECOVERY_NOTIFICATIONS, False))
         self.departure_time: datetime | None = None
+        self.departure_time_draft: datetime | None = None
         self.departure_consumed: bool = False
         self.departure_status: str = DEPARTURE_STATUS_NOT_SCHEDULED
         self.scheduled_start_time: datetime | None = None
@@ -458,6 +461,13 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         saved_departure = saved.get("departure_time")
         if isinstance(saved_departure, str):
             self.departure_time = dt_util.parse_datetime(saved_departure)
+        saved_departure_draft = saved.get("departure_time_draft")
+        if isinstance(saved_departure_draft, str):
+            self.departure_time_draft = dt_util.parse_datetime(
+                saved_departure_draft
+            )
+        else:
+            self.departure_time_draft = self.departure_time
         self.departure_consumed = bool(saved.get("departure_consumed", False))
         if (
             self._live_activity_end_behavior == LIVE_ACTIVITY_END_AUTOMATIC
@@ -1385,6 +1395,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             "departure_time": (
                 self.departure_time.isoformat() if self.departure_time else None
             ),
+            "departure_time_draft": (
+                self.departure_time_draft.isoformat()
+                if self.departure_time_draft
+                else None
+            ),
             "departure_consumed": self.departure_consumed,
         })
 
@@ -1393,12 +1408,36 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         if value.tzinfo is None:
             value = dt_util.as_local(value.replace(tzinfo=dt_util.UTC))
         self.departure_time = value
+        self.departure_time_draft = value
         self.departure_consumed = False
         self._departure_risk_reason = None
         self._departure_risk_since = None
         self._departure_risk_notified = False
         await self._save_state()
         await self.async_update_charging_logic(trigger_entity="departure_time")
+
+    async def async_set_departure_time_draft(self, value: datetime) -> None:
+        """Memorizza una bozza senza modificare il piano di ricarica."""
+        if value.tzinfo is None:
+            value = dt_util.as_local(value.replace(tzinfo=dt_util.UTC))
+        self.departure_time_draft = value
+        await self._save_state()
+        self.async_update_listeners()
+
+    async def async_confirm_departure_time(self) -> None:
+        """Conferma atomicamente la bozza solo se è nel futuro."""
+        now = dt_util.now()
+        if not departure_draft_is_valid(self.departure_time_draft, now):
+            raise ServiceValidationError(
+                "The scheduled departure must be in the future"
+            )
+        await self.async_set_departure_time(self.departure_time_draft)
+
+    async def async_cancel_departure_time_edit(self) -> None:
+        """Annulla la modifica e ripristina nella bozza il valore attivo."""
+        self.departure_time_draft = self.departure_time
+        await self._save_state()
+        self.async_update_listeners()
 
     async def async_set_scheduled_departure_enabled(self, enabled: bool) -> None:
         """Attiva/disattiva la modalità senza richiedere un riavvio."""

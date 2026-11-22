@@ -330,7 +330,12 @@
       "scheduled_departure": { "name": "Scheduled departure" }
     },
     "datetime": {
-      "departure_time": { "name": "Ready by" }
+      "departure_time": { "name": "Ready by" },
+      "departure_time_draft": { "name": "Ready by – draft" }
+    },
+    "button": {
+      "confirm_departure_time": { "name": "Confirm Ready by" },
+      "cancel_departure_time_edit": { "name": "Cancel departure edit" }
     },
     "number": {
       "user_soc_target": { "name": "User SOC Target (Night F3)" },
