@@ -161,6 +161,19 @@ class CalculationTests(unittest.TestCase):
             )
         )
 
+    def test_restart_without_soc_does_not_start_before_saved_time(self) -> None:
+        now = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        self.assertFalse(
+            calculations.scheduled_departure_should_override(
+                vehicle_connected=True,
+                now=now,
+                scheduled_start=datetime(
+                    2026, 11, 22, 15, 0, tzinfo=timezone.utc
+                ),
+                active_session=False,
+            )
+        )
+
     def test_departure_start_moves_earlier_immediately(self) -> None:
         now = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
         result = calculations.stabilize_departure_start(

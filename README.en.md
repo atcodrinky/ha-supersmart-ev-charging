@@ -224,6 +224,12 @@ started, the session remains active until the target is reached. Changing the
 deadline, disabling the mode or using Master Stop releases the session lock and
 forces a new evaluation.
 
+After a Home Assistant restart, temporarily unavailable SOC data no longer
+starts a waiting plan immediately: the integration retains the last estimated
+start. It resumes immediately only when the scheduled session had already
+started; if no estimate exists yet, the deadline is used as the final fallback
+while the normal PV, off-peak and Force rules remain available.
+
 For safe manual dashboard editing, **Ready by – draft** is also available:
 changing its picker never affects charging until **Confirm and enable
 departure** is pressed. Confirmation also enables the **Scheduled departure**

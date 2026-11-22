@@ -228,6 +228,12 @@ iniziata, la sessione resta attiva fino al target. Una nuova scadenza, la
 disattivazione della modalità o Master Stop annullano invece il blocco della
 sessione e forzano una nuova valutazione.
 
+Dopo un riavvio di Home Assistant, un SOC temporaneamente non disponibile non
+fa partire immediatamente un piano ancora in attesa: l'integrazione conserva
+l'ultimo avvio stimato. Riprende subito soltanto una sessione programmata già
+iniziata; se non esiste ancora una stima, usa la scadenza come ultimo limite e
+nel frattempo continua ad applicare le normali regole FV, F3 e Forza.
+
 Per l’uso manuale in plancia è disponibile anche **Auto pronta entro – bozza**:
 le modifiche al selettore non influenzano la ricarica finché non viene premuto
 **Conferma e attiva partenza**. La conferma abilita automaticamente anche lo

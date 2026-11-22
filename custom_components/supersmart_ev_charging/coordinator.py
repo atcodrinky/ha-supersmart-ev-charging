@@ -707,9 +707,26 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self._schedule_save()
         elif not data.get("vehicle_soc_valid", False):
             status = DEPARTURE_STATUS_SOC_UNAVAILABLE
+            # During a Home Assistant restart, the vehicle integration often
+            # needs a few moments before exposing SOC again. Keep following the
+            # last stabilized start instead of treating missing SOC as an
+            # immediate scheduled-departure override. An already active
+            # departure session is still resumed; without a saved estimate,
+            # the deadline itself is the conservative last-resort start.
+            start = self._departure_stabilized_start or self.departure_time
+            active_session = bool(
+                self._departure_active_deadline == self.departure_time
+            )
             override = bool(
-                data.get("vehicle_connected", False)
-                and self.allow_charging_without_soc
+                self.allow_charging_without_soc
+                and scheduled_departure_should_override(
+                    vehicle_connected=bool(
+                        data.get("vehicle_connected", False)
+                    ),
+                    now=now,
+                    scheduled_start=start,
+                    active_session=active_session,
+                )
             )
             risk_reason = "soc_unavailable"
         elif float(data.get("vehicle_soc", 0)) >= self.vehicle_soc_target:
