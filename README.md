@@ -220,6 +220,14 @@ target veicolo. Restano prioritari Master Stop, protezioni elettriche e Forza
 Ricarica. Margine, rendimento stimato e notifiche facoltative se il target è a
 rischio sono modificabili con **Salva ed esci**, senza riavviare Home Assistant.
 
+Per evitare che l'orario stimato oscilli a ogni variazione dei consumi,
+l'integrazione usa la media dei carichi domestici degli ultimi **5 minuti**.
+Se i consumi peggiorano anticipa subito l'avvio; lo posticipa soltanto dopo
+**5 minuti** di condizioni migliori stabili. Quando la ricarica programmata è
+iniziata, la sessione resta attiva fino al target. Una nuova scadenza, la
+disattivazione della modalità o Master Stop annullano invece il blocco della
+sessione e forzano una nuova valutazione.
+
 Per l’uso manuale in plancia è disponibile anche **Auto pronta entro – bozza**:
 le modifiche al selettore non influenzano la ricarica finché non viene premuto
 **Conferma e attiva partenza**. La conferma abilita automaticamente anche lo

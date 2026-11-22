@@ -148,6 +148,64 @@ class CalculationTests(unittest.TestCase):
             )
         )
 
+    def test_active_departure_session_remains_locked(self) -> None:
+        now = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        self.assertTrue(
+            calculations.scheduled_departure_should_override(
+                vehicle_connected=True,
+                now=now,
+                scheduled_start=datetime(
+                    2026, 11, 22, 15, 0, tzinfo=timezone.utc
+                ),
+                active_session=True,
+            )
+        )
+
+    def test_departure_start_moves_earlier_immediately(self) -> None:
+        now = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        result = calculations.stabilize_departure_start(
+            current_start=datetime(2026, 11, 22, 15, 0, tzinfo=timezone.utc),
+            candidate_start=datetime(2026, 11, 22, 14, 30, tzinfo=timezone.utc),
+            later_candidate_since=None,
+            now=now,
+            later_stability_seconds=300,
+        )
+        self.assertEqual(
+            result.scheduled_start,
+            datetime(2026, 11, 22, 14, 30, tzinfo=timezone.utc),
+        )
+        self.assertIsNone(result.later_candidate_since)
+
+    def test_departure_start_moves_later_only_after_five_stable_minutes(self) -> None:
+        current = datetime(2026, 11, 22, 15, 0, tzinfo=timezone.utc)
+        candidate = datetime(2026, 11, 22, 16, 0, tzinfo=timezone.utc)
+        now = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        first = calculations.stabilize_departure_start(
+            current_start=current,
+            candidate_start=candidate,
+            later_candidate_since=None,
+            now=now,
+            later_stability_seconds=300,
+        )
+        self.assertEqual(first.scheduled_start, current)
+        almost = calculations.stabilize_departure_start(
+            current_start=current,
+            candidate_start=candidate,
+            later_candidate_since=first.later_candidate_since,
+            now=datetime(2026, 11, 22, 9, 4, 59, tzinfo=timezone.utc),
+            later_stability_seconds=300,
+        )
+        self.assertEqual(almost.scheduled_start, current)
+        stable = calculations.stabilize_departure_start(
+            current_start=current,
+            candidate_start=candidate,
+            later_candidate_since=first.later_candidate_since,
+            now=datetime(2026, 11, 22, 9, 5, tzinfo=timezone.utc),
+            later_stability_seconds=300,
+        )
+        self.assertEqual(stable.scheduled_start, candidate)
+        self.assertIsNone(stable.later_candidate_since)
+
     def test_departure_draft_must_be_in_the_future(self) -> None:
         now = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
         self.assertFalse(calculations.departure_draft_is_valid(None, now))

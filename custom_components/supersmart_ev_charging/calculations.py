@@ -89,6 +89,13 @@ class DeparturePlan(NamedTuple):
     delay_minutes: float | None
 
 
+class DepartureStartStability(NamedTuple):
+    """Stabilized latest-start value and pending later-shift timestamp."""
+
+    scheduled_start: datetime | None
+    later_candidate_since: datetime | None
+
+
 def scheduled_departure_plan(
     *,
     now: datetime,
@@ -140,17 +147,49 @@ def scheduled_departure_should_override(
     vehicle_connected: bool,
     now: datetime,
     scheduled_start: datetime | None,
+    active_session: bool = False,
 ) -> bool:
     """Return whether tariff/PV preferences must be bypassed now.
 
-    The decision deliberately depends only on the newly calculated start time,
-    not on the previously active charging mode. This allows moving a deadline
-    forward to return the controller to its normal PV/off-peak rules.
+    Before charging starts, the decision follows the stabilized start time.
+    Once the scheduled session is active, it remains locked until the target
+    is reached or the plan is explicitly changed or disabled.
     """
     return bool(
         vehicle_connected
-        and (scheduled_start is None or now >= scheduled_start)
+        and (
+            active_session
+            or scheduled_start is None
+            or now >= scheduled_start
+        )
     )
+
+
+def stabilize_departure_start(
+    *,
+    current_start: datetime | None,
+    candidate_start: datetime | None,
+    later_candidate_since: datetime | None,
+    now: datetime,
+    later_stability_seconds: float = 300.0,
+    tolerance_seconds: float = 60.0,
+) -> DepartureStartStability:
+    """Move earlier immediately but delay later shifts until stable."""
+    if candidate_start is None:
+        return DepartureStartStability(current_start, None)
+    if current_start is None:
+        return DepartureStartStability(candidate_start, None)
+
+    delta = (candidate_start - current_start).total_seconds()
+    if delta < -tolerance_seconds:
+        return DepartureStartStability(candidate_start, None)
+    if delta <= tolerance_seconds:
+        return DepartureStartStability(current_start, None)
+    if later_candidate_since is None:
+        return DepartureStartStability(current_start, now)
+    if (now - later_candidate_since).total_seconds() >= later_stability_seconds:
+        return DepartureStartStability(candidate_start, None)
+    return DepartureStartStability(current_start, later_candidate_since)
 
 
 def departure_draft_is_valid(

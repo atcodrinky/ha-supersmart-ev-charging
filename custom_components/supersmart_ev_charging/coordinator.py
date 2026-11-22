@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+from collections import deque
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -25,6 +26,7 @@ from .calculations import (
     scheduled_departure_plan,
     scheduled_departure_should_override,
     departure_draft_is_valid,
+    stabilize_departure_start,
     soc_below_target,
     soc_target_reached,
     wallbox_current_from_power,
@@ -129,6 +131,9 @@ from .const import (
     DEFAULT_DEPARTURE_CHARGING_EFFICIENCY,
     DEFAULT_DEPARTURE_RISK_DELAY_MIN,
     DEPARTURE_RISK_CONFIRM_SECONDS,
+    DEPARTURE_LOAD_AVERAGE_MINUTES,
+    DEPARTURE_LATER_STABILITY_SECONDS,
+    DEPARTURE_START_TOLERANCE_SECONDS,
     LIVE_ACTIVITY_UPDATE_PROGRESS,
     LIVE_ACTIVITY_UPDATE_EVENTS_ONLY,
     LIVE_ACTIVITY_MIN_UPDATE_SECONDS,
@@ -364,6 +369,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._departure_risk_reason: str | None = None
         self._departure_risk_since: datetime | None = None
         self._departure_risk_notified: bool = False
+        self._departure_house_load_samples: deque[tuple[datetime, float]] = deque()
+        self._departure_stabilized_start: datetime | None = None
+        self._departure_later_candidate_since: datetime | None = None
+        self._departure_active_deadline: datetime | None = None
         self.last_valid_vehicle_soc: float | None = None
         self.last_valid_vehicle_soc_at: datetime | None = None
 
@@ -468,6 +477,23 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             )
         else:
             self.departure_time_draft = self.departure_time
+        saved_stabilized_start = saved.get("departure_stabilized_start")
+        if isinstance(saved_stabilized_start, str):
+            self._departure_stabilized_start = dt_util.parse_datetime(
+                saved_stabilized_start
+            )
+        saved_active_deadline = saved.get("departure_active_deadline")
+        if isinstance(saved_active_deadline, str):
+            self._departure_active_deadline = dt_util.parse_datetime(
+                saved_active_deadline
+            )
+        saved_later_candidate_since = saved.get(
+            "departure_later_candidate_since"
+        )
+        if isinstance(saved_later_candidate_since, str):
+            self._departure_later_candidate_since = dt_util.parse_datetime(
+                saved_later_candidate_since
+            )
         self.departure_consumed = bool(saved.get("departure_consumed", False))
         if (
             self._live_activity_end_behavior == LIVE_ACTIVITY_END_AUTOMATIC
@@ -664,6 +690,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         now = now or dt_util.now()
         status = DEPARTURE_STATUS_NOT_SCHEDULED
         start = projected_end = None
+        raw_start = None
         required_minutes = delay_minutes = None
         override = False
         risk_reason = None
@@ -688,11 +715,19 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         elif float(data.get("vehicle_soc", 0)) >= self.vehicle_soc_target:
             status = DEPARTURE_STATUS_READY
             self.departure_consumed = True
+            self._departure_active_deadline = None
             self._schedule_save()
         else:
+            planning_house_w = self._departure_planning_house_load(data, now)
             available_a = max(
                 DEFAULT_MIN_CHARGE_CURRENT_A,
-                self._contratto_balanced_current(data, use_night_limit=False),
+                balanced_current(
+                    self._contract_power_w,
+                    planning_house_w,
+                    0.0,
+                    float(data.get("wallbox_voltage_v", 230.0)),
+                    DEFAULT_MAX_LOAD_CURRENT_A,
+                ),
             )
             plan = scheduled_departure_plan(
                 now=now,
@@ -704,15 +739,39 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 available_power_w=available_a * float(data.get("wallbox_voltage_v", 230)),
                 safety_margin_minutes=self._departure_margin_min,
             )
-            start = plan.scheduled_start
+            raw_start = plan.scheduled_start
+            previous_start = self._departure_stabilized_start
+            previous_later_since = self._departure_later_candidate_since
+            stabilized = stabilize_departure_start(
+                current_start=self._departure_stabilized_start,
+                candidate_start=raw_start,
+                later_candidate_since=self._departure_later_candidate_since,
+                now=now,
+                later_stability_seconds=DEPARTURE_LATER_STABILITY_SECONDS,
+                tolerance_seconds=DEPARTURE_START_TOLERANCE_SECONDS,
+            )
+            start = stabilized.scheduled_start
+            self._departure_stabilized_start = start
+            self._departure_later_candidate_since = (
+                stabilized.later_candidate_since
+            )
+            if (
+                previous_start != self._departure_stabilized_start
+                or previous_later_since != self._departure_later_candidate_since
+            ):
+                self._schedule_save()
             projected_end = plan.projected_end
             required_minutes = plan.required_minutes
             delay_minutes = plan.delay_minutes
             connected = bool(data.get("vehicle_connected", False))
+            active_session = bool(
+                self._departure_active_deadline == self.departure_time
+            )
             override = scheduled_departure_should_override(
                 vehicle_connected=connected,
                 now=now,
                 scheduled_start=start,
+                active_session=active_session,
             )
             if not connected:
                 status = DEPARTURE_STATUS_DISCONNECTED
@@ -735,12 +794,51 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             "departure_status": status,
             "departure_time": self.departure_time,
             "scheduled_start_time": start,
+            "scheduled_start_raw": raw_start,
             "departure_projected_end": projected_end,
             "departure_required_minutes": required_minutes,
             "departure_delay_minutes": delay_minutes,
             "departure_override_required": override,
             "departure_risk_reason": risk_reason,
         })
+
+    def _departure_planning_house_load(
+        self, data: dict[str, Any], now: datetime
+    ) -> float:
+        """Return a conservative 5-minute house-load average."""
+        current = max(0.0, float(data.get("house_power_w", 0.0)))
+        cutoff = now - timedelta(minutes=DEPARTURE_LOAD_AVERAGE_MINUTES)
+        while (
+            self._departure_house_load_samples
+            and self._departure_house_load_samples[0][0] < cutoff
+        ):
+            self._departure_house_load_samples.popleft()
+
+        if (
+            self._departure_house_load_samples
+            and (now - self._departure_house_load_samples[-1][0]).total_seconds()
+            < 20
+        ):
+            self._departure_house_load_samples[-1] = (now, current)
+        else:
+            self._departure_house_load_samples.append((now, current))
+
+        average = sum(
+            sample for _, sample in self._departure_house_load_samples
+        ) / len(self._departure_house_load_samples)
+        # A new load spike must move the start earlier immediately; a lower
+        # instantaneous load is accepted only through the rolling average.
+        return max(current, average)
+
+    def _reset_departure_planning_state(
+        self, *, clear_samples: bool = False
+    ) -> None:
+        """Reset start stabilization and the active departure-session lock."""
+        self._departure_stabilized_start = None
+        self._departure_later_candidate_since = None
+        self._departure_active_deadline = None
+        if clear_samples:
+            self._departure_house_load_samples.clear()
 
     # ── Loop principale di decisione ───────────────────────────────────────────
     async def async_update_charging_logic(
@@ -797,6 +895,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         # Le automazioni originali eseguono il reset sullo stato ``idle``
         # della wallbox, indipendentemente da un eventuale sensore veicolo.
         if wb_state == WB_STATE_IDLE:
+            departure_lock_changed = self._departure_active_deadline is not None
             changed = any((
                 self.master_stop,
                 self.force_charge,
@@ -807,8 +906,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self.solar_controller_active = False
             self.force_charge            = False
             self.charging_mode           = CHARGING_MODE_IDLE
+            self._departure_active_deadline = None
             self._reset_pv_counters()
             self._fv_hygiene_cycles = 0
+            if departure_lock_changed:
+                self._schedule_save()
             if changed:
                 _LOGGER.info("[SuperSmart] Veicolo scollegato (wallbox idle) – reset completo")
                 self.async_update_listeners()
@@ -816,6 +918,10 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
 
         # ── 1. MASTER STOP – priorità assoluta ────────────────────────────────
         if self.master_stop:
+            departure_lock_changed = self._departure_active_deadline is not None
+            self._departure_active_deadline = None
+            if departure_lock_changed:
+                self._schedule_save()
             if self.charging_mode != CHARGING_MODE_MASTER_STOP:
                 _LOGGER.warning("[SuperSmart] Master Stop attivo – revoca autorizzazione")
                 self.solar_controller_active = False
@@ -863,6 +969,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self.last_stop_reason = STOP_REASON_VEHICLE_TARGET
             self.solar_controller_active = False
             self.charging_mode           = CHARGING_MODE_IDLE
+            self._departure_active_deadline = None
             self._reset_pv_counters()
             self._fv_hygiene_cycles = 0
             self.async_update_listeners()
@@ -928,6 +1035,9 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 data, use_night_limit=False
             )
             self.solar_controller_active = False
+            if self._departure_active_deadline != self.departure_time:
+                self._departure_active_deadline = self.departure_time
+                self._schedule_save()
             if self.charging_mode != CHARGING_MODE_DEPARTURE:
                 await self._set_mode(self._payload_normal)
                 if wb_state in WB_STATES_READY and amp_contratto >= 7:
@@ -943,6 +1053,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         # in modo intelligente e lascia rivalutare subito FV/F3.
         if self.charging_mode == CHARGING_MODE_DEPARTURE:
             self.charging_mode = CHARGING_MODE_IDLE
+            self._departure_active_deadline = None
+            self._schedule_save()
             if wb_state == WB_STATE_CHARGING:
                 await self._set_mode(self._payload_pause)
                 await self._revoke()
@@ -1400,6 +1512,21 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 if self.departure_time_draft
                 else None
             ),
+            "departure_stabilized_start": (
+                self._departure_stabilized_start.isoformat()
+                if self._departure_stabilized_start
+                else None
+            ),
+            "departure_later_candidate_since": (
+                self._departure_later_candidate_since.isoformat()
+                if self._departure_later_candidate_since
+                else None
+            ),
+            "departure_active_deadline": (
+                self._departure_active_deadline.isoformat()
+                if self._departure_active_deadline
+                else None
+            ),
             "departure_consumed": self.departure_consumed,
         })
 
@@ -1407,6 +1534,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         """Imposta una nuova scadenza e riattiva il piano."""
         if value.tzinfo is None:
             value = dt_util.as_local(value.replace(tzinfo=dt_util.UTC))
+        if self.departure_time != value:
+            self._reset_departure_planning_state(clear_samples=True)
         self.departure_time = value
         self.departure_time_draft = value
         self.departure_consumed = False
@@ -1431,6 +1560,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             raise ServiceValidationError(
                 "The scheduled departure must be in the future"
             )
+        if (
+            self.departure_time != self.departure_time_draft
+            or not self.scheduled_departure_enabled
+        ):
+            self._reset_departure_planning_state(clear_samples=True)
         self.departure_time = self.departure_time_draft
         self.scheduled_departure_enabled = True
         self.departure_consumed = False
@@ -1450,6 +1584,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
 
     async def async_set_scheduled_departure_enabled(self, enabled: bool) -> None:
         """Attiva/disattiva la modalità senza richiedere un riavvio."""
+        if self.scheduled_departure_enabled != enabled:
+            self._reset_departure_planning_state(clear_samples=True)
         self.scheduled_departure_enabled = enabled
         if enabled:
             self.departure_consumed = False

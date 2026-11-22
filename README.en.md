@@ -216,6 +216,14 @@ Force Charge keep their higher priority. Margin, efficiency and optional
 at-risk notifications can be changed with **Save & Close** without restarting
 Home Assistant.
 
+To prevent the estimated start from moving with every load fluctuation, the
+integration uses the average household load from the last **5 minutes**. A
+worsening load moves the start earlier immediately; a later start is accepted
+only after **5 minutes** of stable improvement. Once scheduled charging has
+started, the session remains active until the target is reached. Changing the
+deadline, disabling the mode or using Master Stop releases the session lock and
+forces a new evaluation.
+
 For safe manual dashboard editing, **Ready by – draft** is also available:
 changing its picker never affects charging until **Confirm and enable
 departure** is pressed. Confirmation also enables the **Scheduled departure**
