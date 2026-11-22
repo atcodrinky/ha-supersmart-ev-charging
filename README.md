@@ -222,7 +222,8 @@ rischio sono modificabili con **Salva ed esci**, senza riavviare Home Assistant.
 
 Per l’uso manuale in plancia è disponibile anche **Auto pronta entro – bozza**:
 le modifiche al selettore non influenzano la ricarica finché non viene premuto
-**Conferma Auto pronta entro**. Il pulsante **Annulla modifica partenza** ripristina
+**Conferma e attiva partenza**. La conferma abilita automaticamente anche lo
+switch **Partenza programmata**. Il pulsante **Annulla modifica partenza** ripristina
 nella bozza la scadenza attiva. Automazioni e calendari possono continuare a
 scrivere direttamente sull’entità **Auto pronta entro**.
 
@@ -245,7 +246,7 @@ entities:
   - type: button
     name: Applica programmazione
     icon: mdi:calendar-check
-    action_name: Conferma
+    action_name: Conferma e attiva
     tap_action:
       action: perform-action
       perform_action: button.press
@@ -268,9 +269,9 @@ entities:
         entity_id: button.garage_supersmart_ev_charging_annulla_modifica_partenza
 ```
 
-Il selettore modifica esclusivamente la bozza. Il piano viene ricalcolato solo
-premendo **Conferma**; **Annulla** ricarica nella bozza l’ultima scadenza
-effettivamente applicata.
+Il selettore modifica esclusivamente la bozza. Il piano viene attivato e
+ricalcolato solo premendo **Conferma e attiva**; **Annulla** ricarica nella
+bozza l’ultima scadenza effettivamente applicata.
 
 ### Passaggio finale — Comandi MQTT
 
@@ -357,7 +358,7 @@ automaticamente alle istanze create dalla v1.2.0 in poi.
 
 | Pulsante | Funzione |
 |---|---|
-| Conferma Auto pronta entro | Valida la bozza e applica la scadenza in un’unica operazione |
+| Conferma e attiva partenza | Valida la bozza, applica la scadenza e abilita il piano in un’unica operazione |
 | Annulla modifica partenza | Ripristina nella bozza la scadenza attualmente attiva |
 
 ### Number

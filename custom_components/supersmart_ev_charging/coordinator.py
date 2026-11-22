@@ -1425,13 +1425,22 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self.async_update_listeners()
 
     async def async_confirm_departure_time(self) -> None:
-        """Conferma atomicamente la bozza solo se è nel futuro."""
+        """Conferma la bozza e attiva il piano con un solo ricalcolo."""
         now = dt_util.now()
         if not departure_draft_is_valid(self.departure_time_draft, now):
             raise ServiceValidationError(
                 "The scheduled departure must be in the future"
             )
-        await self.async_set_departure_time(self.departure_time_draft)
+        self.departure_time = self.departure_time_draft
+        self.scheduled_departure_enabled = True
+        self.departure_consumed = False
+        self._departure_risk_reason = None
+        self._departure_risk_since = None
+        self._departure_risk_notified = False
+        await self._save_state()
+        await self.async_update_charging_logic(
+            trigger_entity="departure_time_confirmed"
+        )
 
     async def async_cancel_departure_time_edit(self) -> None:
         """Annulla la modifica e ripristina nella bozza il valore attivo."""

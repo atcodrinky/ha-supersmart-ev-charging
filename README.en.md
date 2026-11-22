@@ -217,8 +217,9 @@ at-risk notifications can be changed with **Save & Close** without restarting
 Home Assistant.
 
 For safe manual dashboard editing, **Ready by – draft** is also available:
-changing its picker never affects charging until **Confirm Ready by** is
-pressed. **Cancel departure edit** restores the active deadline into the draft.
+changing its picker never affects charging until **Confirm and enable
+departure** is pressed. Confirmation also enables the **Scheduled departure**
+switch. **Cancel departure edit** restores the active deadline into the draft.
 Automations and calendars can still write directly to the effective **Ready by**
 entity.
 
@@ -240,7 +241,7 @@ entities:
   - type: button
     name: Apply schedule
     icon: mdi:calendar-check
-    action_name: Confirm
+    action_name: Confirm and enable
     tap_action:
       action: perform-action
       perform_action: button.press
@@ -263,9 +264,9 @@ entities:
         entity_id: button.garage_supersmart_ev_charging_cancel_departure_edit
 ```
 
-The picker changes only the draft. The charging plan is recalculated only when
-**Confirm** is pressed; **Cancel** reloads the last effective deadline into the
-draft.
+The picker changes only the draft. The charging plan is enabled and recalculated
+only when **Confirm and enable** is pressed; **Cancel** reloads the last effective
+deadline into the draft.
 
 ### Final step — MQTT commands
 
@@ -351,7 +352,7 @@ automatically to instances created with v1.2.0 or later.
 
 | Button | Purpose |
 |---|---|
-| Confirm Ready by | Validates and applies the draft deadline atomically |
+| Confirm and enable departure | Validates the draft, applies the deadline and enables the plan atomically |
 | Cancel departure edit | Restores the currently active deadline into the draft |
 
 ### Numbers

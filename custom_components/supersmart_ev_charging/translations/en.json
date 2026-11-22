@@ -334,7 +334,7 @@
       "departure_time_draft": { "name": "Ready by – draft" }
     },
     "button": {
-      "confirm_departure_time": { "name": "Confirm Ready by" },
+      "confirm_departure_time": { "name": "Confirm and enable departure" },
       "cancel_departure_time_edit": { "name": "Cancel departure edit" }
     },
     "number": {

@@ -334,7 +334,7 @@
       "departure_time_draft": { "name": "Auto pronta entro – bozza" }
     },
     "button": {
-      "confirm_departure_time": { "name": "Conferma Auto pronta entro" },
+      "confirm_departure_time": { "name": "Conferma e attiva partenza" },
       "cancel_departure_time_edit": { "name": "Annulla modifica partenza" }
     },
     "number": {
