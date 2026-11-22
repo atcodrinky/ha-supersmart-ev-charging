@@ -135,6 +135,24 @@ def scheduled_departure_plan(
     )
 
 
+def scheduled_departure_should_override(
+    *,
+    vehicle_connected: bool,
+    now: datetime,
+    scheduled_start: datetime | None,
+) -> bool:
+    """Return whether tariff/PV preferences must be bypassed now.
+
+    The decision deliberately depends only on the newly calculated start time,
+    not on the previously active charging mode. This allows moving a deadline
+    forward to return the controller to its normal PV/off-peak rules.
+    """
+    return bool(
+        vehicle_connected
+        and (scheduled_start is None or now >= scheduled_start)
+    )
+
+
 def soc_below_target(
     soc: float,
     soc_valid: bool,

@@ -22,6 +22,7 @@ from .calculations import (
     night_charge_should_stop,
     pv_current_values,
     scheduled_departure_plan,
+    scheduled_departure_should_override,
     soc_below_target,
     soc_target_reached,
     wallbox_current_from_power,
@@ -698,7 +699,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             required_minutes = plan.required_minutes
             delay_minutes = plan.delay_minutes
             connected = bool(data.get("vehicle_connected", False))
-            override = bool(connected and (start is None or now >= start or self.charging_mode == CHARGING_MODE_DEPARTURE))
+            override = scheduled_departure_should_override(
+                vehicle_connected=connected,
+                now=now,
+                scheduled_start=start,
+            )
             if not connected:
                 status = DEPARTURE_STATUS_DISCONNECTED
                 if start is not None and now >= start:

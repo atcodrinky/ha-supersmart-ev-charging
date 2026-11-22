@@ -127,6 +127,27 @@ class CalculationTests(unittest.TestCase):
         )
         self.assertEqual(plan.delay_minutes, 300)
 
+    def test_moving_departure_forward_cancels_the_override(self) -> None:
+        now = datetime(2026, 11, 22, 9, 0, tzinfo=timezone.utc)
+        self.assertTrue(
+            calculations.scheduled_departure_should_override(
+                vehicle_connected=True,
+                now=now,
+                scheduled_start=datetime(
+                    2026, 11, 22, 8, 0, tzinfo=timezone.utc
+                ),
+            )
+        )
+        self.assertFalse(
+            calculations.scheduled_departure_should_override(
+                vehicle_connected=True,
+                now=now,
+                scheduled_start=datetime(
+                    2026, 11, 22, 15, 0, tzinfo=timezone.utc
+                ),
+            )
+        )
+
     def test_night_session_stops_when_offpeak_period_ends(self) -> None:
         self.assertTrue(
             calculations.night_charge_should_stop(
