@@ -17,6 +17,7 @@
           "initial_vehicle_soc_target": "Vehicle SOC target – used for PV SURPLUS & FORCE (%)",
           "allow_charging_without_soc": "Allow charging when SOC is unavailable",
           "departure_enabled": "Enable Scheduled departure",
+          "departure_maximize_offpeak": "Maximize off-peak charging to the vehicle target with Scheduled departure",
           "departure_safety_margin_min": "Safety margin (minutes)",
           "departure_charging_efficiency": "Estimated charging efficiency (%)",
           "departure_risk_notifications": "Notify when the target is at risk",
@@ -25,7 +26,8 @@
         },
         "data_description": {
           "instance_name": "Recommended pattern: SuperSmart VEHICLE_NAME Charging. Example: SuperSmart Elroq Charging → sensor.supersmart_elroq_charging_…",
-          "allow_charging_without_soc": "If SOC is unavailable, the integration may start and modulate charging according to PV, off-peak and Force rules. Target stopping is entrusted to the limit stored in the vehicle; the off-peak user target cannot be checked. Default: disabled."
+          "allow_charging_without_soc": "If SOC is unavailable, the integration may start and modulate charging according to PV, off-peak and Force rules. Target stopping is entrusted to the limit stored in the vehicle; the off-peak user target cannot be checked. Default: disabled.",
+          "departure_maximize_offpeak": "With an active plan, off-peak charging uses the vehicle target. When off-peak ends, charging stops if the scheduled start is not due yet."
         }
       },
       "entities": {
@@ -160,11 +162,15 @@
         "description": "Configure the latest safe start calculation. Set the deadline with the Ready by entity and enable the plan with its switch.",
         "data": {
           "departure_enabled": "Enable Scheduled departure",
+          "departure_maximize_offpeak": "Maximize off-peak charging to the vehicle target",
           "departure_safety_margin_min": "Safety margin (minutes)",
           "departure_charging_efficiency": "Estimated charging efficiency (%)",
           "departure_risk_notifications": "Notify when the target is at risk",
           "departure_risk_delay_min": "Minimum delay before warning (minutes)",
           "departure_recovery_notifications": "Notify when the plan recovers"
+        },
+        "data_description": {
+          "departure_maximize_offpeak": "When a valid scheduled departure exists, use the off-peak period to get as close as possible to the vehicle target; after off-peak ends, continue only if the latest safe start has already been reached."
         }
       },
       "notifications": {

@@ -165,6 +165,19 @@ def scheduled_departure_should_override(
     )
 
 
+def departure_aware_night_target(
+    *,
+    user_target: float,
+    vehicle_target: float,
+    maximize_offpeak: bool,
+    departure_plan_active: bool,
+) -> float:
+    """Use the vehicle target during off-peak when an active plan requests it."""
+    if maximize_offpeak and departure_plan_active:
+        return vehicle_target
+    return user_target
+
+
 def stabilize_departure_start(
     *,
     current_start: datetime | None,

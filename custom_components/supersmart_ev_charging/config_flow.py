@@ -18,6 +18,7 @@ from .const import (
     CONF_INITIAL_VEHICLE_SOC_TARGET,
     CONF_ALLOW_CHARGING_WITHOUT_SOC,
     CONF_DEPARTURE_ENABLED,
+    CONF_DEPARTURE_MAXIMIZE_OFFPEAK,
     CONF_DEPARTURE_SAFETY_MARGIN_MIN,
     CONF_DEPARTURE_CHARGING_EFFICIENCY,
     CONF_DEPARTURE_RISK_NOTIFICATIONS,
@@ -104,6 +105,7 @@ from .const import (
     DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN,
     DEFAULT_DEPARTURE_CHARGING_EFFICIENCY,
     DEFAULT_DEPARTURE_RISK_DELAY_MIN,
+    DEFAULT_DEPARTURE_MAXIMIZE_OFFPEAK,
     DEFAULT_LIVE_ACTIVITY_SOC_STEP,
     DEFAULT_LIVE_ACTIVITY_CLEAR_MINUTES,
     LIVE_ACTIVITY_UPDATE_PROGRESS,
@@ -340,6 +342,10 @@ class SuperSmartEvChargingConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_INITIAL_VEHICLE_SOC_TARGET,   default=DEFAULT_VEHICLE_SOC_TARGET):  vol.All(vol.Coerce(int), vol.Range(min=20, max=100)),
                 vol.Required(CONF_ALLOW_CHARGING_WITHOUT_SOC,   default=False): bool,
                 vol.Required(CONF_DEPARTURE_ENABLED,            default=False): bool,
+                vol.Required(
+                    CONF_DEPARTURE_MAXIMIZE_OFFPEAK,
+                    default=DEFAULT_DEPARTURE_MAXIMIZE_OFFPEAK,
+                ): bool,
                 vol.Required(
                     CONF_DEPARTURE_SAFETY_MARGIN_MIN,
                     default=DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN,
@@ -842,6 +848,13 @@ class SuperSmartEvChargingOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(
                     CONF_DEPARTURE_ENABLED,
                     default=enabled_default,
+                ): selector.BooleanSelector(),
+                vol.Required(
+                    CONF_DEPARTURE_MAXIMIZE_OFFPEAK,
+                    default=d.get(
+                        CONF_DEPARTURE_MAXIMIZE_OFFPEAK,
+                        DEFAULT_DEPARTURE_MAXIMIZE_OFFPEAK,
+                    ),
                 ): selector.BooleanSelector(),
                 vol.Required(
                     CONF_DEPARTURE_SAFETY_MARGIN_MIN,

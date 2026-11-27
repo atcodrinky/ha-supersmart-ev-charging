@@ -73,6 +73,37 @@ class CalculationTests(unittest.TestCase):
             80,
         )
 
+    def test_scheduled_departure_can_maximize_offpeak_to_vehicle_target(self) -> None:
+        self.assertEqual(
+            calculations.departure_aware_night_target(
+                user_target=50,
+                vehicle_target=80,
+                maximize_offpeak=True,
+                departure_plan_active=True,
+            ),
+            80,
+        )
+
+    def test_offpeak_keeps_user_target_without_active_maximization(self) -> None:
+        self.assertEqual(
+            calculations.departure_aware_night_target(
+                user_target=50,
+                vehicle_target=80,
+                maximize_offpeak=False,
+                departure_plan_active=True,
+            ),
+            50,
+        )
+        self.assertEqual(
+            calculations.departure_aware_night_target(
+                user_target=50,
+                vehicle_target=80,
+                maximize_offpeak=True,
+                departure_plan_active=False,
+            ),
+            50,
+        )
+
     def test_charging_time_uses_configured_usable_capacity(self) -> None:
         # 60% of a 77 kWh usable battery is 46.2 kWh: at 7.7 kW = 6 hours.
         self.assertAlmostEqual(

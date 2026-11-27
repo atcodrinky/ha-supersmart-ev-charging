@@ -220,6 +220,15 @@ target veicolo. Restano prioritari Master Stop, protezioni elettriche e Forza
 Ricarica. Margine, rendimento stimato e notifiche facoltative se il target è a
 rischio sono modificabili con **Salva ed esci**, senza riavviare Home Assistant.
 
+L'opzione **Massimizza F3 fino al target veicolo**, attiva per impostazione
+predefinita, rende il piano consapevole della tariffa: durante F3 usa il target
+veicolo invece del normale target utente notturno. Alla fine della fascia, se
+il target non è ancora raggiunto, interrompe la sessione e attende l'avvio
+programmato; se l'ultimo orario utile è già arrivato, passa direttamente alla
+modalità Partenza programmata senza interrompere la ricarica. Disattivando
+l'opzione viene mantenuto il comportamento tradizionale basato sul target
+utente F3.
+
 Per evitare che l'orario stimato oscilli a ogni variazione dei consumi,
 l'integrazione usa la media dei carichi domestici degli ultimi **5 minuti**.
 Se i consumi peggiorano anticipa subito l'avvio; lo posticipa soltanto dopo

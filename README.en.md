@@ -216,6 +216,14 @@ Force Charge keep their higher priority. Margin, efficiency and optional
 at-risk notifications can be changed with **Save & Close** without restarting
 Home Assistant.
 
+The **Maximize off-peak charging to the vehicle target** option, enabled by
+default, makes the plan tariff-aware: during off-peak it uses the vehicle target
+instead of the normal night user target. When off-peak ends, an unfinished
+session stops and waits for the scheduled start; if the latest safe start has
+already been reached, it switches directly to Scheduled departure without
+interrupting charging. Disabling the option preserves the traditional
+off-peak user-target behavior.
+
 To prevent the estimated start from moving with every load fluctuation, the
 integration uses the average household load from the last **5 minutes**. A
 worsening load moves the start earlier immediately; a later start is accepted

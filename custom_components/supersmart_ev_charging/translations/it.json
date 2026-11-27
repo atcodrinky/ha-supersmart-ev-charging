@@ -17,6 +17,7 @@
           "initial_vehicle_soc_target": "Target SOC veicolo – usato per SURPLUS FV e FORZA (%)",
           "allow_charging_without_soc": "Consenti la ricarica quando il SOC non è disponibile",
           "departure_enabled": "Abilita Partenza programmata",
+          "departure_maximize_offpeak": "Massimizza F3 fino al target veicolo con Partenza programmata",
           "departure_safety_margin_min": "Margine di sicurezza (minuti)",
           "departure_charging_efficiency": "Rendimento di ricarica stimato (%)",
           "departure_risk_notifications": "Notifica se il target è a rischio",
@@ -25,7 +26,8 @@
         },
         "data_description": {
           "instance_name": "Schema consigliato: SuperSmart NOME_AUTO Charging. Esempio: SuperSmart Elroq Charging → sensor.supersmart_elroq_charging_…",
-          "allow_charging_without_soc": "Se il SOC non è disponibile, l'integrazione può avviare e modulare la ricarica secondo FV, F3 e Forza. Lo stop al target viene affidato al limite memorizzato nell'auto; il target utente F3 non può essere verificato. Predefinito: disattivato."
+          "allow_charging_without_soc": "Se il SOC non è disponibile, l'integrazione può avviare e modulare la ricarica secondo FV, F3 e Forza. Lo stop al target viene affidato al limite memorizzato nell'auto; il target utente F3 non può essere verificato. Predefinito: disattivato.",
+          "departure_maximize_offpeak": "Con un piano attivo, durante F3 carica fino al target veicolo. All'uscita da F3 si ferma se l'avvio programmato non è ancora necessario."
         }
       },
       "entities": {
@@ -160,11 +162,15 @@
         "description": "Imposta come calcolare l'ultimo orario utile. Data e ora si regolano dall'entità Auto pronta entro; lo switch abilita il piano.",
         "data": {
           "departure_enabled": "Abilita Partenza programmata",
+          "departure_maximize_offpeak": "Massimizza F3 fino al target veicolo",
           "departure_safety_margin_min": "Margine di sicurezza (minuti)",
           "departure_charging_efficiency": "Rendimento di ricarica stimato (%)",
           "departure_risk_notifications": "Notifica se il target è a rischio",
           "departure_risk_delay_min": "Ritardo minimo per segnalare il rischio (minuti)",
           "departure_recovery_notifications": "Notifica quando il piano torna regolare"
+        },
+        "data_description": {
+          "departure_maximize_offpeak": "Quando esiste una partenza programmata valida, usa la fascia F3 per avvicinarsi il più possibile al target veicolo; al termine della fascia continua solo se è già arrivato l'ultimo orario utile."
         }
       },
       "notifications": {

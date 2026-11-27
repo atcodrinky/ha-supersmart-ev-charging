@@ -26,6 +26,7 @@ from .calculations import (
     scheduled_departure_plan,
     scheduled_departure_should_override,
     departure_draft_is_valid,
+    departure_aware_night_target,
     stabilize_departure_start,
     soc_below_target,
     soc_target_reached,
@@ -103,6 +104,7 @@ from .const import (
     CONF_INITIAL_VEHICLE_SOC_TARGET,
     CONF_ALLOW_CHARGING_WITHOUT_SOC,
     CONF_DEPARTURE_ENABLED,
+    CONF_DEPARTURE_MAXIMIZE_OFFPEAK,
     CONF_DEPARTURE_SAFETY_MARGIN_MIN,
     CONF_DEPARTURE_CHARGING_EFFICIENCY,
     CONF_DEPARTURE_RISK_NOTIFICATIONS,
@@ -130,6 +132,7 @@ from .const import (
     DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN,
     DEFAULT_DEPARTURE_CHARGING_EFFICIENCY,
     DEFAULT_DEPARTURE_RISK_DELAY_MIN,
+    DEFAULT_DEPARTURE_MAXIMIZE_OFFPEAK,
     DEPARTURE_RISK_CONFIRM_SECONDS,
     DEPARTURE_LOAD_AVERAGE_MINUTES,
     DEPARTURE_LATER_STABILITY_SECONDS,
@@ -200,8 +203,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
       2. STOP SOC     → stop assoluto se SOC ≥ limite_auto
       3. FORCE CHARGE → mode 2 (normal) + modula entro contratto
       4. SURPLUS FV   → mode 1 (solar), start ≥7A / stop <5.5A per 60s
-      5. NOTTE F3     → mode 2 (normal), solo se FV < 7A e SOC < limite_utente
-      6. STOP SOC F3  → stop se SOC ≥ limite_utente in F3 notte
+      5. NOTTE F3     → mode 2 (normal), solo se FV < 7A e SOC < target F3
+      6. STOP SOC F3  → stop se SOC ≥ target F3 effettivo
       7. IGIENE FV    → spegne solar_controller_active se FV < 7A per 60s senza caricare
 
     AUTORIZZAZIONE: via button.press su entità HA (button.silla_prism_autorizza/revoca),
@@ -356,6 +359,12 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             d.get(CONF_ALLOW_CHARGING_WITHOUT_SOC, False)
         )
         self.scheduled_departure_enabled: bool = bool(d.get(CONF_DEPARTURE_ENABLED, False))
+        self._departure_maximize_offpeak = bool(
+            d.get(
+                CONF_DEPARTURE_MAXIMIZE_OFFPEAK,
+                DEFAULT_DEPARTURE_MAXIMIZE_OFFPEAK,
+            )
+        )
         self._departure_margin_min = int(d.get(CONF_DEPARTURE_SAFETY_MARGIN_MIN, DEFAULT_DEPARTURE_SAFETY_MARGIN_MIN))
         self._departure_efficiency = float(d.get(CONF_DEPARTURE_CHARGING_EFFICIENCY, DEFAULT_DEPARTURE_CHARGING_EFFICIENCY))
         self._departure_risk_notifications = bool(d.get(CONF_DEPARTURE_RISK_NOTIFICATIONS, False))
@@ -417,6 +426,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._live_clear_task: asyncio.Task | None = None
         self._live_clear_at: datetime | None = None
         self._last_notified_mode: str = "sconosciuta"
+        self._last_notified_target: int | None = None
         self._vehicle_limit_sync_pending = False
         self._vehicle_limit_sync_task: asyncio.Task | None = None
         self._vehicle_limit_requested_value: float | None = None
@@ -639,6 +649,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self.user_soc_target,
                 self.vehicle_soc_target,
             )
+            if self.charging_mode == CHARGING_MODE_NIGHT:
+                target_soc = self._night_soc_target()
             data["target_soc_active"] = target_soc
 
             # Il target è l'ultimo limite realmente inviato alla wallbox,
@@ -857,6 +869,23 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         if clear_samples:
             self._departure_house_load_samples.clear()
 
+    def _departure_plan_is_active(self) -> bool:
+        """Return whether a non-consumed scheduled-departure plan exists."""
+        return bool(
+            self.scheduled_departure_enabled
+            and self.departure_time is not None
+            and not self.departure_consumed
+        )
+
+    def _night_soc_target(self) -> float:
+        """Return the SOC target to use for the current off-peak session."""
+        return departure_aware_night_target(
+            user_target=self.user_soc_target,
+            vehicle_target=self.vehicle_soc_target,
+            maximize_offpeak=self._departure_maximize_offpeak,
+            departure_plan_active=self._departure_plan_is_active(),
+        )
+
     # ── Loop principale di decisione ───────────────────────────────────────────
     async def async_update_charging_logic(
         self,
@@ -881,8 +910,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
           2. SOC ≥ limite_auto → STOP assoluto (Gestione SOC)
           3. FORZA RICARICA (Gestione Carichi)
           4. SURPLUS FV ≥ 7A  → mode solar (Surplus FV)
-          5. F3 + notte + SOC < limite_utente → mode normal (Gestione Fascia)
-          6. F3 notte + SOC ≥ limite_utente + FV assente → STOP (Gestione SOC F3)
+          5. F3 + notte + SOC < target effettivo → mode normal (Gestione Fascia)
+          6. F3 notte + SOC ≥ target effettivo + FV assente → STOP
           7. IGIENE controller FV
         """
         await self.async_refresh()
@@ -962,10 +991,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("[SuperSmart] SOC non disponibile – ricarica bloccata")
             return
 
-        below_user_target = soc_below_target(
+        night_soc_target = self._night_soc_target()
+        below_night_target = soc_below_target(
             vehicle_soc,
             soc_valid,
-            self.user_soc_target,
+            night_soc_target,
             self.allow_charging_without_soc,
         )
 
@@ -1078,10 +1108,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self.async_update_listeners()
 
         # ── 5. SURPLUS FV – lavora in tutte le fasce ──────────────────────────
-        # skip_in_f3: se F3 e SOC < limite_utente e amp_fv < 7 → lascia spazio alla logica notturna
+        # In F3 lascia spazio alla logica notturna fino al target effettivo:
+        # target utente normalmente, target veicolo con piano programmato.
         skip_in_f3 = (
             is_offpeak
-            and below_user_target
+            and below_night_target
             and amp_fv < DEFAULT_PV_START_CURRENT_A
             and not self.solar_controller_active
         )
@@ -1186,14 +1217,15 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             return
 
         # ── 6. GESTIONE FASCIA F3 NOTTE – avvio notturno ──────────────────────
-        # Condizioni YAML: F3 + sole sotto orizzonte + solar_active=OFF + SOC < limite_utente
+        # Con una partenza programmata attiva, l'opzione dedicata permette di
+        # sfruttare F3 fino al target veicolo invece del normale target utente.
         #                  + amp (contratto) ≥ 7A + amp_fv < 6A + stato in [waiting, pause]
         if (self.night_charging_enabled
                 and self._tariff_enabled
                 and is_offpeak
                 and sun_below
                 and not self.solar_controller_active
-                and below_user_target
+                and below_night_target
                 and wb_state in WB_STATES_READY):
 
             # L'automazione "Gestione Fascia" usa il limite contrattuale per
@@ -1203,7 +1235,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             if amp_contratto >= 7 and amp_fv < 6:
                 _LOGGER.info(
                     "[SuperSmart] F3 notte – avvio ricarica notturna mode 2 (SOC %.0f%% < %.0f%%)",
-                    vehicle_soc, self.user_soc_target,
+                    vehicle_soc, night_soc_target,
                 )
                 self.solar_controller_active = False
                 await self._send_limit(6.0)
@@ -1217,14 +1249,14 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 return
 
         # ── 7. GESTIONE CARICHI NOTTURNA – modulazione in F3 ──────────────────
-        # Condizioni: F3 + notte + solar_active=OFF + charging + SOC < limite_utente
+        # Condizioni: F3 + notte + solar_active=OFF + charging + SOC < target F3 effettivo
         if (self.night_charging_enabled
                 and self._tariff_enabled
                 and is_offpeak
                 and sun_below
                 and not self.solar_controller_active
                 and wb_state == WB_STATE_CHARGING
-                and below_user_target):
+                and below_night_target):
 
             amp_contratto = self._contratto_balanced_current(data, use_night_limit=True)
 
@@ -1267,20 +1299,20 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
                 self._night_below_since = None
                 self._pv_below_stop_cycles = 0
 
-        # ── 8. GESTIONE SOC F3 – stop se SOC ≥ limite_utente in notte senza FV ─
+        # ── 8. GESTIONE SOC F3 – stop al target effettivo in notte senza FV ─
         if (self.night_charging_enabled
                 and self._tariff_enabled
                 and is_offpeak
                 and sun_below
                 and not self.force_charge
                 and soc_target_reached(
-                    vehicle_soc, soc_valid, self.user_soc_target
+                    vehicle_soc, soc_valid, night_soc_target
                 )
                 and amp_fv < 6
                 and wb_state == WB_STATE_CHARGING):
             _LOGGER.info(
-                "[SuperSmart] F3: SOC %.0f%% ≥ limite_utente %.0f%% – stop ricarica notturna",
-                vehicle_soc, self.user_soc_target,
+                "[SuperSmart] F3: SOC %.0f%% ≥ target effettivo %.0f%% – stop ricarica notturna",
+                vehicle_soc, night_soc_target,
             )
             await self._set_mode(self._payload_pause)
             await self._delay(1)
@@ -1329,7 +1361,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         Chiamata quando FORZA viene disattivata.
         Replica EV - Uscita intelligente da FORZA:
           - continua_fv (amp_fv ≥ 7) → attiva solar_controller
-          - continua_notturna (F3 + SOC < limite_utente) → lascia andare Gestione Fascia
+          - continua_notturna (F3 + SOC < target effettivo) → prosegue in F3
           - altrimenti → stop carica
         """
         wb_state = self._get_state(self._wallbox_state_entity, WB_STATE_IDLE)
@@ -1352,7 +1384,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             and soc_below_target(
                 soc,
                 soc_valid,
-                self.user_soc_target,
+                self._night_soc_target(),
                 self.allow_charging_without_soc,
             )
         )
@@ -1452,6 +1484,8 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             self.user_soc_target,
             self.vehicle_soc_target,
         )
+        if self.charging_mode == CHARGING_MODE_NIGHT:
+            target_soc = self._night_soc_target()
         self.data["target_soc_active"] = target_soc
         if not self.data.get("vehicle_soc_valid", False):
             self.data["remaining_minutes"] = None
@@ -1990,7 +2024,11 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         soc_value = data.get("vehicle_soc")
         soc = int(float(soc_value)) if data.get("vehicle_soc_valid") else None
         mode = self._live_last_mode or self._notification_mode()
-        target = int(data.get("target_soc_active", self.user_soc_target))
+        target = int(
+            self._live_last_target
+            if self._live_last_target is not None
+            else data.get("target_soc_active", self.user_soc_target)
+        )
         reason = defaults["stop_reasons"].get(
             self.last_stop_reason,
             defaults["stop_reasons"][STOP_REASON_NONE],
@@ -2096,7 +2134,12 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         self._last_notified_mode = mode
         soc_value, soc_valid = self._get_valid_float(self._soc_entity)
         soc: int | str = int(soc_value) if soc_valid else "N/A"
-        target = int(self.user_soc_target if mode == "notturna_f3" else self.vehicle_soc_target)
+        target = int(
+            self._night_soc_target()
+            if mode == "notturna_f3"
+            else self.vehicle_soc_target
+        )
+        self._last_notified_target = target
         defaults = notification_defaults(
             self._notification_language, self.hass.config.language
         )
@@ -2112,9 +2155,13 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
         mode = self._last_notified_mode
         soc_value, soc_valid = self._get_valid_float(self._soc_entity)
         soc: int | str = int(soc_value) if soc_valid else "N/A"
-        target = int(
-            self.user_soc_target if mode == "notturna_f3" else self.vehicle_soc_target
-        )
+        target = self._last_notified_target
+        if target is None:
+            target = int(
+                self._night_soc_target()
+                if mode == "notturna_f3"
+                else self.vehicle_soc_target
+            )
         defaults = notification_defaults(
             self._notification_language, self.hass.config.language
         )
@@ -2123,6 +2170,7 @@ class SuperSmartEvChargingCoordinator(DataUpdateCoordinator):
             "stop", context, defaults, soc_valid=soc_valid
         )
         self._last_notified_mode = "sconosciuta"
+        self._last_notified_target = None
 
     def _notification_context(
         self,
